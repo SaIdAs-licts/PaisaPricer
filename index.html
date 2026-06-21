@@ -1,0 +1,2860 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full bg-[#080B11]">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PaisaPricer - Options Pricing & Greeks Terminal</title>
+    
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        darkBg: '#080B11',
+                        panelBg: '#0F131E',
+                        panelBorder: '#1E2538',
+                        accentCyan: '#00F2FE',
+                        accentGreen: '#05F9A7',
+                        accentRed: '#FF4A5A',
+                        textMuted: '#94A3B8',
+                    },
+                    fontFamily: {
+                        mono: ['JetBrains Mono', 'Fira Code', 'monospace'],
+                        sans: ['Inter', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Chart.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <style>
+        /* Custom scrollbar for terminal aesthetic */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #080B11;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #1E2538;
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #313D57;
+        }
+        
+        /* Neon glows */
+        .neon-border-cyan:focus {
+            outline: none;
+            border-color: #00F2FE;
+            box-shadow: 0 0 10px rgba(0, 242, 254, 0.25);
+        }
+        .neon-border-green:focus {
+            outline: none;
+            border-color: #05F9A7;
+            box-shadow: 0 0 10px rgba(5, 249, 167, 0.25);
+        }
+        .neon-border-red:focus {
+            outline: none;
+            border-color: #FF4A5A;
+            box-shadow: 0 0 10px rgba(255, 74, 90, 0.25);
+        }
+        
+        /* Slider styling overrides for uniform look */
+        input[type="range"] {
+            -webkit-appearance: none;
+            appearance: none;
+            background: #1E2538;
+            height: 4px;
+            border-radius: 2px;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            background: #00F2FE;
+            cursor: pointer;
+            transition: transform 0.1s ease;
+        }
+        input[type="range"]::-webkit-slider-thumb:hover {
+            transform: scale(1.2);
+            box-shadow: 0 0 8px rgba(0, 242, 254, 0.5);
+        }
+        
+        /* Toggle specific states */
+        .ce-active {
+            background: rgba(5, 249, 167, 0.1);
+            border-color: #05F9A7;
+            color: #05F9A7;
+        }
+        .pe-active {
+            background: rgba(255, 74, 90, 0.1);
+            border-color: #FF4A5A;
+            color: #FF4A5A;
+        }
+    </style>
+</head>
+<body class="h-full flex flex-col font-sans text-slate-100 antialiased overflow-x-hidden">
+
+    <!-- TOP TERMINAL HEADER -->
+    <header class="bg-[#0b0f19] border-b border-panelBorder px-4 py-2.5 flex flex-wrap items-center justify-between gap-4 select-none shrink-0">
+        <div class="flex items-center space-x-3">
+            <!-- Glowing Terminal Dot -->
+            <div class="relative flex h-3 w-3">
+                <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-accentCyan opacity-75"></span>
+                <span class="relative inline-flex rounded-full h-3 w-3 bg-accentCyan"></span>
+            </div>
+            <div>
+                <h1 class="text-lg font-bold font-mono tracking-wider flex items-center gap-1.5 text-white">
+                    PAISA<span class="text-accentCyan">PRICER</span>
+                    <span class="text-[9px] bg-slate-800 text-slate-400 px-1 py-0.5 rounded tracking-normal font-normal">v1.2-IN</span>
+                </h1>
+            </div>
+        </div>
+        
+        <!-- Live Indices Ticker -->
+        <div class="hidden lg:flex items-center space-x-4 text-xs font-mono">
+            <div class="flex items-center space-x-1.5 border-r border-panelBorder pr-3">
+                <span class="text-textMuted">NIFTY:</span>
+                <span id="ticker-nifty" class="text-accentRed">24,013.00</span>
+                <span class="text-accentRed text-[9px]">-0.45%</span>
+            </div>
+            <div class="flex items-center space-x-1.5 border-r border-panelBorder pr-3">
+                <span class="text-textMuted">SENSEX:</span>
+                <span id="ticker-sensex" class="text-accentRed">78,800.00</span>
+                <span class="text-accentRed text-[9px]">-0.38%</span>
+            </div>
+            <div class="flex items-center space-x-1.5 border-r border-panelBorder pr-3">
+                <span class="text-textMuted">BANK:</span>
+                <span id="ticker-banknifty" class="text-accentRed">51,661.00</span>
+                <span class="text-accentRed text-[9px]">-0.60%</span>
+            </div>
+            <div class="flex items-center space-x-1.5 border-r border-panelBorder pr-3">
+                <span class="text-textMuted">FIN:</span>
+                <span id="ticker-finnifty" class="text-accentRed">23,812.00</span>
+                <span class="text-accentRed text-[9px]">-0.52%</span>
+            </div>
+            <div class="flex items-center space-x-1.5">
+                <span class="text-textMuted">MIDCAP:</span>
+                <span id="ticker-midcap" class="text-accentRed">12,200.00</span>
+                <span class="text-accentRed text-[9px]">-0.24%</span>
+            </div>
+        </div>
+
+        <!-- System Status Info -->
+        <div class="flex items-center space-x-4 text-xs font-mono">
+            <div class="flex items-center space-x-1.5 text-textMuted bg-slate-900/60 px-2.5 py-1 rounded border border-panelBorder">
+                <i data-lucide="clock" class="w-3.5 h-3.5 text-accentCyan"></i>
+                <span id="live-timer">2026-06-21 10:30:30 IST</span>
+            </div>
+            <div id="market-status-badge" class="hidden md:flex items-center space-x-1.5 px-2.5 py-1 rounded border border-panelBorder">
+                <span id="market-status-dot" class="h-1.5 w-1.5 rounded-full"></span>
+                <span id="market-status-text">MARKET CLOSED</span>
+            </div>
+            <div class="hidden md:flex items-center space-x-1.5 text-accentGreen bg-emerald-950/20 px-2.5 py-1 rounded border border-emerald-900/30">
+                <span class="h-1.5 w-1.5 rounded-full bg-accentGreen"></span>
+                <span>NSE CONVENTIONS (365 DAYS)</span>
+            </div>
+        </div>
+    </header>
+
+    <!-- TAB NAVIGATION BAR -->
+    <nav class="bg-[#0d1220] border-b border-panelBorder px-4 flex justify-between items-center shrink-0">
+        <div class="flex space-x-1 py-1">
+            <button id="btn-tab-calc" class="px-4 py-2 text-sm font-medium border-b-2 border-accentCyan text-white transition-all flex items-center gap-2">
+                <i data-lucide="calculator" class="w-4 h-4 text-accentCyan"></i>
+                <span>Calculator Workspace</span>
+            </button>
+            <button id="btn-tab-watchlist" class="px-4 py-2 text-sm font-medium border-b-2 border-transparent text-textMuted hover:text-white transition-all flex items-center gap-2">
+                <i data-lucide="bookmark" class="w-4 h-4"></i>
+                <span>Multi-Contract Watchlist</span>
+                <span id="watchlist-count" class="bg-slate-800 text-slate-300 text-[10px] px-1.5 py-0.5 rounded-full">0</span>
+            </button>
+        </div>
+        <div class="text-xs text-textMuted font-mono">
+            91-Day T-Bill Yield: <span class="text-white font-bold">7.00%</span>
+        </div>
+    </nav>
+
+    <!-- MAIN APP CONTENT CONTAINER -->
+    <main class="flex-1 overflow-y-auto p-4 md:p-6 bg-[#080B11]">
+        
+        <!-- ======================================= -->
+        <!-- TAB 1: SINGLE OPTION CALCULATOR         -->
+        <!-- ======================================= -->
+        <div id="tab-calculator" class="space-y-6">
+            <div class="grid grid-cols-1 xl:grid-cols-12 gap-6 items-start">
+                
+                <!-- LEFT CONTROL PANEL (4 Columns on XL) -->
+                <section class="xl:col-span-4 bg-panelBg border border-panelBorder rounded-xl p-5 shadow-2xl space-y-6">
+                    <div class="flex items-center justify-between border-b border-panelBorder pb-3">
+                        <h2 class="font-mono text-sm font-semibold uppercase tracking-wider text-slate-300 flex items-center gap-2">
+                            <i data-lucide="sliders" class="w-4 h-4 text-accentCyan"></i>
+                            <span>Parameters & Controls</span>
+                        </h2>
+                        <button id="btn-reset" class="text-xs font-mono text-textMuted hover:text-white flex items-center gap-1 transition">
+                            <i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i> Reset
+                        </button>
+                    </div>
+
+                    <!-- Market Instrument Picker -->
+                    <div class="space-y-2">
+                        <label class="text-xs font-mono font-medium text-textMuted uppercase tracking-wider block">Market Instrument</label>
+                        <select id="select-instrument" class="w-full bg-slate-950 text-white border border-panelBorder rounded-lg px-3 py-2 text-xs font-mono font-semibold focus:outline-none focus:border-accentCyan transition">
+                            <optgroup label="Index Derivatives" class="bg-[#0F131E]">
+                                <option value="NIFTY" selected>NIFTY 50 (Lot: 25)</option>
+                                <option value="SENSEX">BSE SENSEX (Lot: 10)</option>
+                                <option value="BANKNIFTY">BANK NIFTY (Lot: 15)</option>
+                                <option value="FINNIFTY">FIN NIFTY (Lot: 25)</option>
+                                <option value="MIDCAP">NIFTY MIDCAP SELECT (Lot: 50)</option>
+                            </optgroup>
+                            <optgroup id="group-stock-options" label="Stock Options" class="bg-[#0F131E]">
+                                <option value="RELIANCE">RELIANCE (Lot: 250)</option>
+                                <option value="TCS">TCS (Lot: 175)</option>
+                                <option value="INFOSYS">INFOSYS (Lot: 400)</option>
+                                <option value="HDFCBANK">HDFC BANK (Lot: 550)</option>
+                                <option value="ICICIBANK">ICICI BANK (Lot: 700)</option>
+                                <option value="SBIN">SBIN (Lot: 1500)</option>
+                                <option value="BHARTIARTL">BHARTIARTL (Lot: 950)</option>
+                            </optgroup>
+                            <optgroup id="group-search-results" label="Search Results" class="bg-[#0F131E] hidden">
+                                <!-- Search results added dynamically -->
+                            </optgroup>
+                            <optgroup label="Custom" class="bg-[#0F131E]">
+                                <option value="CUSTOM">CUSTOM CONTRACT</option>
+                            </optgroup>
+                        </select>
+                        <div class="flex gap-2 mt-1 select-none">
+                            <input type="text" id="input-search-symbol" placeholder="Search & Add Symbol (e.g. WIPRO, ITC)" class="flex-1 bg-slate-950 text-white border border-panelBorder rounded-lg px-3 py-2 text-xs font-mono focus:outline-none focus:border-accentCyan transition uppercase" style="text-transform: uppercase;">
+                            <button type="button" id="btn-search-symbol" class="px-3 bg-slate-900 border border-panelBorder hover:border-accentCyan/50 hover:text-accentCyan rounded text-xs font-mono font-bold uppercase transition flex items-center justify-center" title="Search & Add stock from Yahoo Finance">
+                                <i data-lucide="search" class="w-3.5 h-3.5"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Option Type and Position Action -->
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="text-xs font-mono font-medium text-textMuted uppercase tracking-wider block mb-2">Option Type</label>
+                            <div class="flex rounded-lg bg-slate-950 p-1 border border-panelBorder select-none">
+                                <button type="button" id="opt-type-ce" class="flex-1 text-center py-1.5 rounded text-xs font-mono font-bold transition ce-active">
+                                    CE (Call)
+                                </button>
+                                <button type="button" id="opt-type-pe" class="flex-1 text-center py-1.5 rounded text-xs font-mono font-bold transition text-textMuted hover:text-white">
+                                    PE (Put)
+                                </button>
+                            </div>
+                        </div>
+                        <div>
+                            <label class="text-xs font-mono font-medium text-textMuted uppercase tracking-wider block mb-2">Position Action</label>
+                            <div class="flex rounded-lg bg-slate-950 p-1 border border-panelBorder select-none">
+                                <button type="button" id="leg-action-buy" class="flex-1 text-center py-1.5 rounded text-xs font-mono font-bold transition ce-active">
+                                    BUY
+                                </button>
+                                <button type="button" id="leg-action-sell" class="flex-1 text-center py-1.5 rounded text-xs font-mono font-bold transition text-textMuted hover:text-white">
+                                    SELL
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Lot Size and Metadata details -->
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <!-- Empty spacer -->
+                        </div>
+                        <div>
+                            <label class="text-xs font-mono font-medium text-textMuted uppercase tracking-wider block mb-2">Lot Size</label>
+                            <input type="number" id="input-lot-size" class="w-full bg-slate-950 text-white border border-panelBorder rounded-lg px-3 py-2 text-sm font-mono text-right focus:outline-none focus:border-accentCyan transition" value="25" readonly>
+                        </div>
+                    </div>
+
+                    <hr class="border-panelBorder">
+
+                    <!-- Sliders & Numeric Inputs -->
+                    <div class="space-y-4">
+                        <!-- Spot Price (S) -->
+                        <div class="space-y-2">
+                            <div class="flex items-center justify-between text-xs font-mono">
+                                <span class="text-textMuted uppercase">Spot Price (S)</span>
+                                <div class="flex items-center space-x-1.5">
+                                    <span class="text-slate-500">₹</span>
+                                    <input type="number" id="input-spot" class="w-20 bg-slate-900 text-white border border-panelBorder rounded px-1.5 py-0.5 text-right font-mono focus:outline-none focus:border-accentCyan" value="24000" step="1">
+                                </div>
+                            </div>
+                            <input type="range" id="slider-spot" class="w-full" min="15000" max="30000" value="24000" step="1">
+                            <div class="flex justify-between text-[10px] text-slate-500 font-mono">
+                                <span>₹15,000</span>
+                                <span>₹30,000</span>
+                            </div>
+                        </div>
+
+                        <!-- Strike Price (K) -->
+                        <div class="space-y-2">
+                            <div class="flex items-center justify-between text-xs font-mono">
+                                <span class="text-textMuted uppercase">Strike Price (K)</span>
+                                <div class="flex items-center space-x-1.5">
+                                    <span class="text-slate-500">₹</span>
+                                    <input type="number" id="input-strike" class="w-20 bg-slate-900 text-white border border-panelBorder rounded px-1.5 py-0.5 text-right font-mono focus:outline-none focus:border-accentCyan" value="24000" step="50">
+                                </div>
+                            </div>
+                            <input type="range" id="slider-strike" class="w-full" min="15000" max="30000" value="24000" step="50">
+                            <div class="flex justify-between text-[10px] text-slate-500 font-mono">
+                                <span>₹15,000</span>
+                                <span>₹30,000</span>
+                            </div>
+                        </div>
+
+                        <!-- Days to Expiry (T) -->
+                        <div class="space-y-2">
+                            <div class="flex items-center justify-between text-xs font-mono">
+                                <span class="text-textMuted uppercase">Days to Expiry (T)</span>
+                                <div class="flex items-center space-x-1.5">
+                                    <input type="number" id="input-expiry" class="w-16 bg-slate-900 text-white border border-panelBorder rounded px-1.5 py-0.5 text-right font-mono focus:outline-none focus:border-accentCyan" value="7" step="0.1" min="0" max="60">
+                                    <span class="text-slate-400">days</span>
+                                </div>
+                            </div>
+                            <input type="range" id="slider-expiry" class="w-full" min="0" max="60" value="7" step="0.1">
+                            <div class="flex justify-between text-[10px] text-slate-500 font-mono">
+                                <span>0 Days (Expiry)</span>
+                                <span>60 Days</span>
+                            </div>
+                        </div>
+
+                        <!-- Implied Volatility (IV%) -->
+                        <div class="space-y-2">
+                            <div class="flex items-center justify-between text-xs font-mono">
+                                <span class="text-textMuted uppercase">Implied Volatility (IV)</span>
+                                <div class="flex items-center space-x-1.5">
+                                    <input type="number" id="input-iv" class="w-16 bg-slate-900 text-white border border-panelBorder rounded px-1.5 py-0.5 text-right font-mono focus:outline-none focus:border-accentCyan" value="18" step="0.1" min="5" max="80">
+                                    <span class="text-slate-400">%</span>
+                                </div>
+                            </div>
+                            <input type="range" id="slider-iv" class="w-full" min="5" max="80" value="18" step="0.1">
+                            <div class="flex justify-between text-[10px] text-slate-500 font-mono">
+                                <span>5.0% (Low)</span>
+                                <span>80.0% (High)</span>
+                            </div>
+                        </div>
+
+                        <!-- Risk-Free Rate (r%) -->
+                        <div class="space-y-2">
+                            <div class="flex items-center justify-between text-xs font-mono">
+                                <span class="text-textMuted uppercase">Risk-Free Rate (r)</span>
+                                <div class="flex items-center space-x-1.5">
+                                    <input type="number" id="input-rate" class="w-16 bg-slate-900 text-white border border-panelBorder rounded px-1.5 py-0.5 text-right font-mono focus:outline-none focus:border-accentCyan" value="7.0" step="0.05" min="4" max="10">
+                                    <span class="text-slate-400">%</span>
+                                </div>
+                            </div>
+                            <input type="range" id="slider-rate" class="w-full" min="4" max="10" value="7.0" step="0.05">
+                            <div class="flex justify-between text-[10px] text-slate-500 font-mono">
+                                <span>4.0%</span>
+                                <span>10.0% (91D T-Bill)</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Action Buttons -->
+                    <div class="grid grid-cols-2 gap-3 select-none">
+                        <button type="button" id="btn-add-leg" class="py-2.5 px-3 rounded-lg bg-gradient-to-r from-accentCyan to-[#00c6ff] hover:opacity-90 font-mono font-bold text-slate-950 text-xs flex items-center justify-center gap-1.5 transition shadow-[0_4px_15px_rgba(0,242,254,0.15)]">
+                            <i data-lucide="plus-circle" class="w-3.5 h-3.5 text-slate-950"></i>
+                            <span>ADD LEG</span>
+                        </button>
+                        <button type="button" id="btn-add-watchlist" class="py-2.5 px-3 rounded-lg bg-slate-900 border border-panelBorder hover:bg-slate-950 hover:text-white font-mono font-bold text-textMuted text-xs flex items-center justify-center gap-1.5 transition">
+                            <i data-lucide="bookmark" class="w-3.5 h-3.5"></i>
+                            <span>SAVE STRATEGY</span>
+                        </button>
+                    </div>
+
+                    <!-- Active Legs List -->
+                    <div class="border-t border-panelBorder pt-4 space-y-3">
+                        <div class="flex items-center justify-between text-xs font-mono">
+                            <span class="text-textMuted uppercase">Active Legs (<span id="legs-count">0</span>)</span>
+                            <button type="button" id="btn-clear-strategy" class="text-[10px] text-accentRed hover:underline transition hidden">Clear All</button>
+                        </div>
+                        <div id="legs-list-container" class="space-y-2 max-h-[180px] overflow-y-auto pr-1">
+                            <div class="text-[10px] text-slate-500 font-mono italic text-center py-4">No legs added. Single-option pricing active.</div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- RIGHT CONTENT REGION (8 Columns on XL) -->
+                <div class="xl:col-span-8 space-y-6">
+                    
+                    <!-- REAL-TIME METRICS GRID PANEL -->
+                    <section class="bg-panelBg border border-panelBorder rounded-xl p-5 shadow-2xl space-y-5">
+                        <div class="flex items-center justify-between border-b border-panelBorder pb-3">
+                            <h2 class="font-mono text-sm font-semibold uppercase tracking-wider text-slate-300 flex items-center gap-2">
+                                <i data-lucide="activity" class="w-4 h-4 text-accentCyan"></i>
+                                <span>Real-Time Options Engine Metrics</span>
+                            </h2>
+                            <div class="flex items-center space-x-2">
+                                <div class="hidden sm:block text-[10px] font-mono bg-slate-950 border border-panelBorder px-2.5 py-1 rounded text-accentCyan font-bold uppercase tracking-wider">
+                                    Calculated Live
+                                </div>
+                                <button type="button" id="btn-export-report" class="py-1 px-2.5 bg-slate-900 border border-panelBorder hover:border-accentCyan/50 hover:text-accentCyan rounded text-[10px] font-mono font-bold uppercase tracking-wider flex items-center gap-1.5 transition select-none" title="Download HTML/PDF Report">
+                                    <i data-lucide="download" class="w-3.5 h-3.5"></i>
+                                    <span>Export Report</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-1 md:grid-cols-12 gap-4">
+                            <!-- Large Option Premium display card (Span 4) -->
+                            <div class="md:col-span-4 bg-slate-950/70 border border-panelBorder rounded-xl p-5 flex flex-col justify-between relative overflow-hidden select-none">
+                                <!-- Background subtle grid glow -->
+                                <div class="absolute -right-6 -bottom-6 w-24 h-24 bg-accentCyan/5 rounded-full blur-2xl"></div>
+                                
+                                <div>
+                                    <span id="lbl-premium-card" class="text-[10px] font-mono uppercase tracking-widest text-textMuted block mb-1">Lot Option Premium</span>
+                                    <div class="text-3xl font-bold font-mono tracking-tight text-white flex items-baseline">
+                                        <span id="val-premium-sign" class="text-xl text-accentCyan font-medium mr-1">₹</span>
+                                        <span id="val-total-premium">0.00</span>
+                                    </div>
+                                    <span id="lbl-premium-sub" class="text-[10px] text-slate-500 font-mono mt-1 block">Total Premium per Lot</span>
+                                </div>
+                                
+                                <div class="mt-4 pt-3 border-t border-panelBorder/50 flex justify-between items-center text-xs font-mono">
+                                    <span id="lbl-share-price" class="text-textMuted">Price per Share:</span>
+                                    <span class="text-white font-bold" id="val-share-price">₹0.00</span>
+                                </div>
+                            </div>
+
+                            <!-- Greeks 4-Column Grid (Span 8) -->
+                            <div class="md:col-span-8 grid grid-cols-2 sm:grid-cols-4 gap-3">
+                                <!-- Delta Card -->
+                                <div class="bg-slate-950/30 border border-panelBorder rounded-xl p-4 flex flex-col justify-between hover:border-slate-800 transition">
+                                    <div>
+                                        <div class="flex items-center justify-between mb-1">
+                                            <span class="text-[10px] font-mono text-textMuted tracking-wider uppercase">Delta (Δ)</span>
+                                            <span class="text-[9px] bg-sky-950 text-accentCyan font-bold px-1.5 py-0.5 rounded font-mono">L1</span>
+                                        </div>
+                                        <div class="text-xl font-bold font-mono text-white" id="val-delta">0.0000</div>
+                                    </div>
+                                    <div class="mt-3 pt-2 border-t border-panelBorder/30 text-[10px] font-mono">
+                                        <span class="text-textMuted block">Lot Delta:</span>
+                                        <span class="font-bold text-white" id="val-lot-delta">+0.00</span>
+                                        <span class="text-[9px] text-slate-500 block leading-tight mt-0.5">Shares exposure</span>
+                                    </div>
+                                </div>
+
+                                <!-- Gamma Card -->
+                                <div class="bg-slate-950/30 border border-panelBorder rounded-xl p-4 flex flex-col justify-between hover:border-slate-800 transition">
+                                    <div>
+                                        <div class="flex items-center justify-between mb-1">
+                                            <span class="text-[10px] font-mono text-textMuted tracking-wider uppercase">Gamma (Γ)</span>
+                                            <span class="text-[9px] bg-slate-900 text-slate-400 font-bold px-1.5 py-0.5 rounded font-mono">L2</span>
+                                        </div>
+                                        <div class="text-xl font-bold font-mono text-white" id="val-gamma">0.0000</div>
+                                    </div>
+                                    <div class="mt-3 pt-2 border-t border-panelBorder/30 text-[10px] font-mono">
+                                        <span class="text-textMuted block">Acceleration:</span>
+                                        <span class="font-bold text-slate-300">Per ₹1 Spot</span>
+                                        <span class="text-[9px] text-slate-500 block leading-tight mt-0.5">Delta shift rate</span>
+                                    </div>
+                                </div>
+
+                                <!-- Vega Card -->
+                                <div class="bg-slate-950/30 border border-panelBorder rounded-xl p-4 flex flex-col justify-between hover:border-slate-800 transition">
+                                    <div>
+                                        <div class="flex items-center justify-between mb-1">
+                                            <span class="text-[10px] font-mono text-textMuted tracking-wider uppercase">Vega (ν)</span>
+                                            <span class="text-[9px] bg-purple-950/50 text-purple-400 font-bold px-1.5 py-0.5 rounded font-mono">Vol</span>
+                                        </div>
+                                        <div class="text-xl font-bold font-mono text-white" id="val-vega">0.0000</div>
+                                    </div>
+                                    <div class="mt-3 pt-2 border-t border-panelBorder/30 text-[10px] font-mono">
+                                        <span class="text-textMuted block">Lot Vega (1%):</span>
+                                        <span class="font-bold text-accentGreen" id="val-lot-vega">₹0.00</span>
+                                        <span class="text-[9px] text-slate-500 block leading-tight mt-0.5">IV shift risk</span>
+                                    </div>
+                                </div>
+
+                                <!-- Theta Card -->
+                                <div class="bg-slate-950/30 border border-panelBorder rounded-xl p-4 flex flex-col justify-between hover:border-slate-800 transition">
+                                    <div>
+                                        <div class="flex items-center justify-between mb-1">
+                                            <span class="text-[10px] font-mono text-textMuted tracking-wider uppercase">Theta (Θ)</span>
+                                            <span class="text-[9px] bg-red-950/50 text-accentRed font-bold px-1.5 py-0.5 rounded font-mono">Decay</span>
+                                        </div>
+                                        <div class="text-xl font-bold font-mono text-accentRed" id="val-theta">-0.0000</div>
+                                    </div>
+                                    <div class="mt-3 pt-2 border-t border-panelBorder/30 text-[10px] font-mono">
+                                        <span class="text-textMuted block">Lot Theta/Day:</span>
+                                        <span class="font-bold text-accentRed" id="val-lot-theta">-₹0.00</span>
+                                        <span class="text-[9px] text-slate-500 block leading-tight mt-0.5">Daily time decay</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Risk Boundaries row (Only visible in Strategy mode) -->
+                        <div id="strategy-boundaries-row" class="hidden grid grid-cols-1 md:grid-cols-3 gap-4 border-t border-panelBorder/50 pt-4">
+                            <!-- Max Profit Card -->
+                            <div class="bg-slate-950/40 border border-panelBorder rounded-xl p-4 flex items-center justify-between">
+                                <div class="space-y-1">
+                                    <span class="text-[10px] font-mono uppercase tracking-wider text-slate-500">Max Profit</span>
+                                    <div class="text-base font-bold font-mono text-accentGreen" id="val-max-profit">₹0.00</div>
+                                </div>
+                                <i data-lucide="shield-check" class="w-5 h-5 text-accentGreen/70"></i>
+                            </div>
+                            
+                            <!-- Max Loss Card -->
+                            <div class="bg-slate-950/40 border border-panelBorder rounded-xl p-4 flex items-center justify-between">
+                                <div class="space-y-1">
+                                    <span class="text-[10px] font-mono uppercase tracking-wider text-slate-500">Max Loss</span>
+                                    <div class="text-base font-bold font-mono text-accentRed" id="val-max-loss">-₹0.00</div>
+                                </div>
+                                <i data-lucide="shield-alert" class="w-5 h-5 text-accentRed/70"></i>
+                            </div>
+
+                            <!-- Breakevens Card -->
+                            <div class="bg-slate-950/40 border border-panelBorder rounded-xl p-4 flex items-center justify-between">
+                                <div class="space-y-1">
+                                    <span class="text-[10px] font-mono uppercase tracking-wider text-slate-500">Breakeven Points</span>
+                                    <div class="text-xs font-bold font-mono text-white" id="val-breakevens">₹0.00</div>
+                                </div>
+                                <i data-lucide="shuffle" class="w-5 h-5 text-accentCyan/70"></i>
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- DYNAMIC CHARTS PANEL (Dual Chart Layout) -->
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <!-- Chart 1: Payoff Curve -->
+                        <section class="bg-panelBg border border-panelBorder rounded-xl p-5 shadow-2xl">
+                            <div class="flex items-center justify-between border-b border-panelBorder pb-3 mb-4">
+                                <h3 class="font-mono text-sm font-semibold uppercase tracking-wider text-slate-300 flex items-center gap-2">
+                                    <i data-lucide="trending-up" class="w-4 h-4 text-accentCyan"></i>
+                                    <span>Option Payoff Curve (-20% to +20%)</span>
+                                </h3>
+                                <span class="text-[9px] font-mono text-slate-500">K-Centered</span>
+                            </div>
+                            <div class="relative w-full h-[280px]">
+                                <canvas id="chart-payoff"></canvas>
+                            </div>
+                        </section>
+
+                        <!-- Chart 2: Time Decay & Gamma -->
+                        <section class="bg-panelBg border border-panelBorder rounded-xl p-5 shadow-2xl">
+                            <div class="flex items-center justify-between border-b border-panelBorder pb-3 mb-4">
+                                <h3 class="font-mono text-sm font-semibold uppercase tracking-wider text-slate-300 flex items-center gap-2">
+                                    <i data-lucide="hourglass" class="w-4 h-4 text-accentCyan"></i>
+                                    <span>Decay Profile (Days to Expiry)</span>
+                                </h3>
+                                <span class="text-[9px] font-mono text-slate-500">Theta & Gamma Dual Axis</span>
+                            </div>
+                            <div class="relative w-full h-[280px]">
+                                <canvas id="chart-time-decay"></canvas>
+                            </div>
+                        </section>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+
+        <!-- ======================================= -->
+        <!-- TAB 2: MULTI-CONTRACT WATCHLIST         -->
+        <!-- ======================================= -->
+        <div id="tab-watchlist" class="hidden space-y-6">
+            <section class="bg-panelBg border border-panelBorder rounded-xl p-5 md:p-6 shadow-2xl">
+                <div class="flex flex-wrap items-center justify-between gap-4 border-b border-panelBorder pb-4 mb-6">
+                    <div>
+                        <h2 class="text-base font-bold font-mono tracking-wider flex items-center gap-2 text-white">
+                            <i data-lucide="list" class="w-5 h-5 text-accentCyan"></i>
+                            <span>Multi-Contract Watchlist</span>
+                        </h2>
+                        <p class="text-xs text-textMuted mt-1">Compare multiple contracts synced with local browser storage</p>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                        <button id="btn-clear-watchlist" class="px-3.5 py-1.5 bg-slate-900 border border-panelBorder hover:bg-slate-950 text-xs font-mono font-bold rounded-lg text-accentRed flex items-center gap-1.5 transition">
+                            <i data-lucide="trash-2" class="w-3.5 h-3.5"></i> Clear All
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Watchlist Empty State -->
+                <div id="watchlist-empty" class="py-16 text-center space-y-4">
+                    <div class="mx-auto w-12 h-12 rounded-full bg-slate-900 border border-panelBorder flex items-center justify-center">
+                        <i data-lucide="bookmark-minus" class="w-6 h-6 text-slate-600"></i>
+                    </div>
+                    <div class="max-w-xs mx-auto">
+                        <h3 class="text-sm font-semibold font-mono text-slate-300">No contracts in watchlist</h3>
+                        <p class="text-xs text-textMuted mt-1">Configure options pricing parameters in the Calculator Workspace and click "Add to Watchlist" to save them here.</p>
+                    </div>
+                </div>
+
+                <!-- Watchlist Table Container -->
+                <div id="watchlist-table-container" class="hidden overflow-x-auto border border-panelBorder rounded-lg">
+                    <table class="w-full text-left border-collapse font-mono text-xs">
+                        <thead>
+                            <tr class="bg-slate-950 border-b border-panelBorder text-textMuted uppercase select-none text-[10px]">
+                                <th class="p-4 font-semibold">Contract Info</th>
+                                <th class="p-4 font-semibold text-right">Spot / Strike</th>
+                                <th class="p-4 font-semibold text-center">IV (%)</th>
+                                <th class="p-4 font-semibold text-right">Days to Exp</th>
+                                <th class="p-4 font-semibold text-right">Option Price (₹)</th>
+                                <th class="p-4 font-semibold text-right">Total Premium / Lot (₹)</th>
+                                <th class="p-4 font-semibold text-right">Lot Delta (Shares)</th>
+                                <th class="p-4 font-semibold text-right">Lot Theta/Day (₹)</th>
+                                <th class="p-4 font-semibold text-center">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="watchlist-tbody" class="divide-y divide-panelBorder bg-slate-900/10">
+                            <!-- Watchlist Rows injected dynamically -->
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+        </div>
+
+    </main>
+
+    <!-- NOTIFICATION NOTIFIER (Bottom Right Popup) -->
+    <div id="toast" class="fixed bottom-6 right-6 bg-[#0E1726] border border-accentCyan/30 text-white text-xs font-mono px-4 py-3 rounded-lg shadow-2xl flex items-center space-x-2.5 translate-y-24 opacity-0 transition-all duration-300 pointer-events-none z-50">
+        <i data-lucide="info" class="w-4 h-4 text-accentCyan"></i>
+        <span id="toast-message">Action processed successfully</span>
+    </div>
+
+    <!-- ======================================= -->
+    <!-- MATHEMATICS & REACTIVE CONTROLS CODE     -->
+    <!-- ======================================= -->
+    <script>
+        // Initialize Lucide Icons
+        lucide.createIcons();
+
+        // System Constants
+        const T_BILL_RATE = 7.0; // Indian 91-day Government Treasury Bill yield
+        const INSTRUMENT_SPECS = {
+            NIFTY: { name: 'NIFTY 50', lot: 25, spot: 24013, minSpot: 18000, maxSpot: 30000, step: 50 },
+            SENSEX: { name: 'BSE SENSEX', lot: 10, spot: 78800, minSpot: 65000, maxSpot: 95000, step: 100 },
+            BANKNIFTY: { name: 'BANK NIFTY', lot: 15, spot: 51661, minSpot: 42000, maxSpot: 62000, step: 100 },
+            FINNIFTY: { name: 'FIN NIFTY', lot: 25, spot: 23812, minSpot: 18000, maxSpot: 28000, step: 100 },
+            MIDCAP: { name: 'NIFTY MIDCAP SELECT', lot: 50, spot: 12200, minSpot: 9000, maxSpot: 15000, step: 25 },
+            RELIANCE: { name: 'RELIANCE', lot: 250, spot: 2950, minSpot: 1800, maxSpot: 4200, step: 20 },
+            TCS: { name: 'TCS', lot: 175, spot: 3850, minSpot: 2500, maxSpot: 5000, step: 50 },
+            INFOSYS: { name: 'INFOSYS', lot: 400, spot: 1750, minSpot: 1000, maxSpot: 2500, step: 20 },
+            HDFCBANK: { name: 'HDFC BANK', lot: 550, spot: 1650, minSpot: 1000, maxSpot: 2300, step: 10 },
+            ICICIBANK: { name: 'ICICI BANK', lot: 700, spot: 1150, minSpot: 700, maxSpot: 1700, step: 10 },
+            SBIN: { name: 'SBIN', lot: 1500, spot: 850, minSpot: 400, maxSpot: 1300, step: 5 },
+            BHARTIARTL: { name: 'BHARTIARTL', lot: 950, spot: 1450, minSpot: 800, maxSpot: 2000, step: 10 },
+            CUSTOM: { name: 'CUSTOM CONTRACT', lot: 25, spot: 24000, minSpot: 100, maxSpot: 150000, step: 5 }
+        };
+
+        // App Reactive State Store
+        const state = {
+            activeTab: 'calculator', // 'calculator' | 'watchlist'
+            instrument: 'NIFTY',
+            optionType: 'CE', // 'CE' | 'PE'
+            legAction: 'BUY', // 'BUY' | 'SELL'
+            spot: 24013,
+            strike: 24000,
+            expiry: 7, // days
+            iv: 18, // implied volatility percentage
+            rate: T_BILL_RATE,
+            lotSize: 25,
+            strategyLegs: [], // Array of option legs: { id, action ('BUY'|'SELL'), type ('CE'|'PE'), strike, expiry, iv, lotSize, rate, price }
+            watchlist: []
+        };
+
+        // DOM elements
+        const elements = {
+            btnTabCalc: document.getElementById('btn-tab-calc'),
+            btnTabWatchlist: document.getElementById('btn-tab-watchlist'),
+            tabCalculator: document.getElementById('tab-calculator'),
+            tabWatchlist: document.getElementById('tab-watchlist'),
+            watchlistCount: document.getElementById('watchlist-count'),
+            
+            selectInstrument: document.getElementById('select-instrument'),
+            optTypeCE: document.getElementById('opt-type-ce'),
+            optTypePE: document.getElementById('opt-type-pe'),
+            legActionBuy: document.getElementById('leg-action-buy'),
+            legActionSell: document.getElementById('leg-action-sell'),
+            inputLotSize: document.getElementById('input-lot-size'),
+            
+            inputSpot: document.getElementById('input-spot'),
+            sliderSpot: document.getElementById('slider-spot'),
+            inputStrike: document.getElementById('input-strike'),
+            sliderStrike: document.getElementById('slider-strike'),
+            inputExpiry: document.getElementById('input-expiry'),
+            sliderExpiry: document.getElementById('slider-expiry'),
+            inputIV: document.getElementById('input-iv'),
+            sliderIV: document.getElementById('slider-iv'),
+            inputRate: document.getElementById('input-rate'),
+            sliderRate: document.getElementById('slider-rate'),
+            
+            btnReset: document.getElementById('btn-reset'),
+            btnAddLeg: document.getElementById('btn-add-leg'),
+            btnClearStrategy: document.getElementById('btn-clear-strategy'),
+            legsCount: document.getElementById('legs-count'),
+            legsListContainer: document.getElementById('legs-list-container'),
+            
+            btnAddWatchlist: document.getElementById('btn-add-watchlist'),
+            btnClearWatchlist: document.getElementById('btn-clear-watchlist'),
+            
+            valSharePrice: document.getElementById('val-share-price'),
+            valTotalPremium: document.getElementById('val-total-premium'),
+            valDelta: document.getElementById('val-delta'),
+            valLotDelta: document.getElementById('val-lot-delta'),
+            valGamma: document.getElementById('val-gamma'),
+            valVega: document.getElementById('val-vega'),
+            valLotVega: document.getElementById('val-lot-vega'),
+            valTheta: document.getElementById('val-theta'),
+            valLotTheta: document.getElementById('val-lot-theta'),
+            
+            strategyBoundariesRow: document.getElementById('strategy-boundaries-row'),
+            valMaxProfit: document.getElementById('val-max-profit'),
+            valMaxLoss: document.getElementById('val-max-loss'),
+            valBreakevens: document.getElementById('val-breakevens'),
+            lblPremiumCard: document.getElementById('lbl-premium-card'),
+            lblPremiumSub: document.getElementById('lbl-premium-sub'),
+            lblSharePrice: document.getElementById('lbl-share-price'),
+            valPremiumSign: document.getElementById('val-premium-sign'),
+            
+            watchlistEmpty: document.getElementById('watchlist-empty'),
+            watchlistTableContainer: document.getElementById('watchlist-table-container'),
+            watchlistTbody: document.getElementById('watchlist-tbody'),
+            
+            liveTimer: document.getElementById('live-timer'),
+            toast: document.getElementById('toast'),
+            toastMessage: document.getElementById('toast-message'),
+            btnExportReport: document.getElementById('btn-export-report'),
+            inputSearchSymbol: document.getElementById('input-search-symbol'),
+            btnSearchSymbol: document.getElementById('btn-search-symbol')
+        };
+
+        // Time Conversion Helpers for Indian Market (IST: UTC+5:30)
+        function checkMarketStatus(date) {
+            // Retrieve weekday, hour, and minute in India (IST) timezone
+            const formatter = new Intl.DateTimeFormat('en-US', {
+                timeZone: 'Asia/Kolkata',
+                weekday: 'short',
+                hour: 'numeric',
+                minute: 'numeric',
+                hour12: false
+            });
+            
+            const parts = formatter.formatToParts(date);
+            const partMap = {};
+            parts.forEach(p => partMap[p.type] = p.value);
+            
+            const weekday = partMap.weekday.toLowerCase(); // 'sun', 'mon', etc.
+            const hour = parseInt(partMap.hour, 10);
+            const minute = parseInt(partMap.minute, 10);
+            const timeInMinutes = hour * 60 + minute;
+            
+            const marketOpenTime = 9 * 60 + 15; // 09:15 AM
+            const marketCloseTime = 15 * 60 + 30; // 03:30 PM
+            
+            if (weekday.startsWith('sat') || weekday.startsWith('sun')) {
+                return { open: false, reason: 'WEEKEND' };
+            }
+            
+            if (timeInMinutes >= marketOpenTime && timeInMinutes < marketCloseTime) {
+                return { open: true, reason: 'OPEN' };
+            } else {
+                return { open: false, reason: 'OFF-HOURS' };
+            }
+        }
+
+        // Live Clock Tracker (Synced and displayed in IST)
+        let currentSystemTime = new Date();
+        
+        function updateClockAndStatus() {
+            currentSystemTime.setSeconds(currentSystemTime.getSeconds() + 1);
+            
+            const clockFormatter = new Intl.DateTimeFormat('en-US', {
+                timeZone: 'Asia/Kolkata',
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit',
+                hour12: false
+            });
+            
+            const parts = clockFormatter.formatToParts(currentSystemTime);
+            const partMap = {};
+            parts.forEach(p => partMap[p.type] = p.value);
+            
+            const dateStr = `${partMap.year}-${partMap.month}-${partMap.day}`;
+            const timeStr = `${partMap.hour}:${partMap.minute}:${partMap.second}`;
+            elements.liveTimer.textContent = `${dateStr} ${timeStr} IST`;
+            
+            const status = checkMarketStatus(currentSystemTime);
+            const badge = document.getElementById('market-status-badge');
+            const dot = document.getElementById('market-status-dot');
+            const text = document.getElementById('market-status-text');
+            
+            if (badge && dot && text) {
+                badge.classList.remove('hidden');
+                if (status.open) {
+                    badge.className = "flex items-center space-x-1.5 text-accentGreen bg-emerald-950/20 px-2.5 py-1 rounded border border-emerald-900/30";
+                    dot.className = "h-1.5 w-1.5 rounded-full bg-accentGreen animate-pulse";
+                    text.textContent = "MARKET OPEN";
+                } else {
+                    badge.className = "flex items-center space-x-1.5 text-accentRed bg-red-950/20 px-2.5 py-1 rounded border border-red-900/30";
+                    dot.className = "h-1.5 w-1.5 rounded-full bg-accentRed";
+                    text.textContent = `MARKET CLOSED (${status.reason})`;
+                }
+            }
+        }
+        
+        updateClockAndStatus();
+        setInterval(updateClockAndStatus, 1000);
+
+        // Live indices tracking for real-time random-walk updates during market hours
+        const liveIndices = {
+            NIFTY: 24013.00,
+            SENSEX: 78800.00,
+            BANKNIFTY: 51661.00,
+            FINNIFTY: 23812.00,
+            MIDCAP: 12200.00
+        };
+        const baseIndices = {
+            NIFTY: 24013.00,
+            SENSEX: 78800.00,
+            BANKNIFTY: 51661.00,
+            FINNIFTY: 23812.00,
+            MIDCAP: 12200.00
+        };
+        const basePctChanges = {
+            NIFTY: -0.45,
+            SENSEX: -0.38,
+            BANKNIFTY: -0.60,
+            FINNIFTY: -0.52,
+            MIDCAP: -0.24
+        };
+
+        // Live indices simulator (Only active during Market Open)
+        // Tick updates indices simultaneously every second to mimic a real trading feed
+        setInterval(() => {
+            const status = checkMarketStatus(currentSystemTime);
+            if (!status.open) return; // Freeze index values when market is closed
+            
+            for (const key in liveIndices) {
+                const stepMultiplier = key === 'SENSEX' ? 10.0 : (key === 'BANKNIFTY' ? 7.0 : 2.5);
+                const tick = (Math.random() - 0.5) * stepMultiplier; // step size
+                liveIndices[key] = Math.max(100, liveIndices[key] + tick);
+                
+                const elem = document.getElementById(`ticker-${key.toLowerCase()}`);
+                if (elem) {
+                    const base = baseIndices[key];
+                    const current = liveIndices[key];
+                    
+                    // Accumulate percentage change from original closing baseline
+                    const netChangePct = basePctChanges[key] + ((current - base) / base) * 100;
+                    const sign = netChangePct >= 0 ? '+' : '';
+                    const colorClass = netChangePct >= 0 ? 'text-accentGreen' : 'text-accentRed';
+                    
+                    elem.className = `${colorClass} transition duration-300`;
+                    elem.textContent = current.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                    
+                    const pctSpan = elem.nextElementSibling;
+                    if (pctSpan) {
+                        pctSpan.className = `${colorClass} text-[10px] transition duration-300`;
+                        pctSpan.textContent = `${sign}${netChangePct.toFixed(2)}%`;
+                    }
+                }
+            }
+        }, 1000);
+
+        // ==========================================
+        // BLACK-SCHOLES MATHEMATICAL COMPUTATION
+        // ==========================================
+
+        /**
+         * Standard Normal Cumulative Distribution Function (CDF)
+         * High accuracy approximation (precision to 1e-7)
+         */
+        function stdNormalCDF(x) {
+            const p = 0.2316419;
+            const b1 = 0.319381530;
+            const b2 = -0.356563782;
+            const b3 = 1.781477937;
+            const b4 = -1.821255978;
+            const b5 = 1.330274429;
+            
+            const t = 1.0 / (1.0 + p * Math.abs(x));
+            const pdf = (1.0 / Math.sqrt(2.0 * Math.PI)) * Math.exp(-0.5 * x * x);
+            const sigma = 1.0 - pdf * (b1 * t + b2 * Math.pow(t, 2) + b3 * Math.pow(t, 3) + b4 * Math.pow(t, 4) + b5 * Math.pow(t, 5));
+            return x >= 0 ? sigma : 1.0 - sigma;
+        }
+
+        /**
+         * Standard Normal Probability Density Function (PDF)
+         */
+        function stdNormalPDF(x) {
+            return (1.0 / Math.sqrt(2.0 * Math.PI)) * Math.exp(-0.5 * x * x);
+        }
+
+        /**
+         * Calculates Black-Scholes premium and Greeks
+         * S: Spot Price
+         * K: Strike Price
+         * T_days: Days to expiry
+         * IV: Implied Volatility (percentage, e.g. 18)
+         * r_pct: Risk free rate (percentage, e.g. 7.0)
+         * optionType: 'CE' or 'PE'
+         */
+        function calculateBS(S, K, T_days, IV, r_pct, optionType) {
+            const r = r_pct / 100;
+            const sigma = IV / 100;
+            let T = T_days / 365;
+
+            // Handle boundary conditions for T -> 0 to prevent division by zero or NaN
+            if (T <= 0) {
+                T = 1e-8; // tiny value for Greeks calculation
+            }
+            const vol = Math.max(sigma, 1e-4);
+
+            const d1 = (Math.log(S / K) + (r + (vol * vol) / 2) * T) / (vol * Math.sqrt(T));
+            const d2 = d1 - vol * Math.sqrt(T);
+
+            const Nd1 = stdNormalCDF(d1);
+            const Nd2 = stdNormalCDF(d2);
+            const N_d1 = stdNormalCDF(-d1);
+            const N_d2 = stdNormalCDF(-d2);
+            const pdf_d1 = stdNormalPDF(d1);
+
+            let price = 0;
+            let delta = 0;
+            let gamma = 0;
+            let vega = 0;
+            let theta = 0;
+
+            if (optionType === 'CE') {
+                // Call Option Price Formula
+                price = S * Nd1 - K * Math.exp(-r * T) * Nd2;
+                delta = Nd1;
+                // Annualized Call Theta
+                theta = - (S * pdf_d1 * vol) / (2 * Math.sqrt(T)) - r * K * Math.exp(-r * T) * Nd2;
+            } else {
+                // Put Option Price Formula
+                price = K * Math.exp(-r * T) * N_d2 - S * N_d1;
+                delta = Nd1 - 1;
+                // Annualized Put Theta
+                theta = - (S * pdf_d1 * vol) / (2 * Math.sqrt(T)) + r * K * Math.exp(-r * T) * N_d2;
+            }
+
+            // Gamma (same for Call and Put)
+            gamma = pdf_d1 / (S * vol * Math.sqrt(T));
+            
+            // Vega (same for Call and Put)
+            vega = S * Math.sqrt(T) * pdf_d1;
+
+            // T_days = 0 Boundary Overrides
+            if (T_days <= 0) {
+                if (optionType === 'CE') {
+                    price = Math.max(0, S - K);
+                    delta = S > K ? 1.0 : (S < K ? 0.0 : 0.5);
+                } else {
+                    price = Math.max(0, K - S);
+                    delta = S < K ? -1.0 : (S > K ? 0.0 : -0.5);
+                }
+                gamma = 0;
+                vega = 0;
+                theta = 0;
+            }
+
+            return {
+                price: Math.max(0, price),
+                delta: delta,
+                gamma: gamma,
+                // Shift in IV by 1 percentage point (0.01)
+                vega1Pct: vega * 0.01,
+                // theta converted to daily decay
+                thetaDaily: theta / 365
+            };
+        }
+
+        // ==========================================
+        // UI & REACTION ACTIONS
+        // ==========================================
+
+        function showToast(message) {
+            elements.toastMessage.textContent = message;
+            elements.toast.classList.remove('translate-y-24', 'opacity-0');
+            elements.toast.classList.add('translate-y-0', 'opacity-100');
+            setTimeout(() => {
+                elements.toast.classList.remove('translate-y-0', 'opacity-100');
+                elements.toast.classList.add('translate-y-24', 'opacity-0');
+            }, 3000);
+        }
+
+        // Synchronize numeric inputs and range sliders
+        function bindInputs(inputElem, sliderElem, stateProp, decimalPlaces = 0, callback = null) {
+            inputElem.addEventListener('input', (e) => {
+                let val = parseFloat(e.target.value);
+                if (isNaN(val)) return;
+                
+                // Keep values inside slider limits
+                const min = parseFloat(sliderElem.min);
+                const max = parseFloat(sliderElem.max);
+                if (val < min) val = min;
+                if (val > max) val = max;
+                
+                state[stateProp] = val;
+                sliderElem.value = val;
+                if (callback) callback();
+            });
+
+            sliderElem.addEventListener('input', (e) => {
+                const val = parseFloat(e.target.value);
+                state[stateProp] = val;
+                inputElem.value = val.toFixed(decimalPlaces);
+                if (callback) callback();
+            });
+        }
+
+        // Initialize state binding
+        bindInputs(elements.inputSpot, elements.sliderSpot, 'spot', 0, updateAppMetrics);
+        bindInputs(elements.inputStrike, elements.sliderStrike, 'strike', 0, updateAppMetrics);
+        bindInputs(elements.inputExpiry, elements.sliderExpiry, 'expiry', 1, updateAppMetrics);
+        bindInputs(elements.inputIV, elements.sliderIV, 'iv', 1, updateAppMetrics);
+        bindInputs(elements.inputRate, elements.sliderRate, 'rate', 2, updateAppMetrics);
+
+        // Instrument Dropdown selection change handler
+        elements.selectInstrument.addEventListener('change', (e) => {
+            const inst = e.target.value;
+            state.instrument = inst;
+            const specs = INSTRUMENT_SPECS[inst];
+            
+            if (inst === 'CUSTOM') {
+                elements.inputLotSize.removeAttribute('readonly');
+                elements.inputLotSize.classList.add('border-accentCyan');
+                elements.inputLotSize.focus();
+            } else {
+                elements.inputLotSize.setAttribute('readonly', 'true');
+                elements.inputLotSize.classList.remove('border-accentCyan');
+                state.lotSize = specs.lot;
+                elements.inputLotSize.value = state.lotSize;
+            }
+
+            // Dynamically center spot & strike parameters
+            state.spot = specs.spot;
+            state.strike = Math.round(specs.spot / specs.step) * specs.step;
+
+            // Spot inputs & sliders limits
+            elements.sliderSpot.min = specs.minSpot;
+            elements.sliderSpot.max = specs.maxSpot;
+            elements.sliderSpot.step = 1;
+            elements.sliderSpot.value = state.spot;
+            elements.inputSpot.value = state.spot;
+
+            // Update range indicators texts on sliders
+            const spotMinText = elements.sliderSpot.nextElementSibling.firstElementChild;
+            const spotMaxText = elements.sliderSpot.nextElementSibling.lastElementChild;
+            if (spotMinText && spotMaxText) {
+                spotMinText.textContent = `₹${specs.minSpot.toLocaleString('en-IN')}`;
+                spotMaxText.textContent = `₹${specs.maxSpot.toLocaleString('en-IN')}`;
+            }
+
+            // Strike inputs & sliders limits
+            elements.sliderStrike.min = specs.minSpot;
+            elements.sliderStrike.max = specs.maxSpot;
+            elements.sliderStrike.step = specs.step;
+            elements.sliderStrike.value = state.strike;
+            elements.inputStrike.value = state.strike;
+
+            const strikeMinText = elements.sliderStrike.nextElementSibling.firstElementChild;
+            const strikeMaxText = elements.sliderStrike.nextElementSibling.lastElementChild;
+            if (strikeMinText && strikeMaxText) {
+                strikeMinText.textContent = `₹${specs.minSpot.toLocaleString('en-IN')}`;
+                strikeMaxText.textContent = `₹${specs.maxSpot.toLocaleString('en-IN')}`;
+            }
+
+            updateAppMetrics();
+        });
+
+        // Custom lot size manual entry
+        elements.inputLotSize.addEventListener('input', (e) => {
+            if (state.instrument === 'CUSTOM') {
+                const val = parseInt(e.target.value);
+                if (!isNaN(val) && val > 0) {
+                    state.lotSize = val;
+                    updateAppMetrics();
+                }
+            }
+        });
+
+        // Option Type Toggles
+        elements.optTypeCE.addEventListener('click', () => {
+            state.optionType = 'CE';
+            elements.optTypeCE.className = "flex-1 text-center py-1.5 rounded text-xs font-mono font-bold transition ce-active";
+            elements.optTypePE.className = "flex-1 text-center py-1.5 rounded text-xs font-mono font-bold transition text-textMuted hover:text-white";
+            updateAppMetrics();
+        });
+
+        elements.optTypePE.addEventListener('click', () => {
+            state.optionType = 'PE';
+            elements.optTypePE.className = "flex-1 text-center py-1.5 rounded text-xs font-mono font-bold transition pe-active";
+            elements.optTypeCE.className = "flex-1 text-center py-1.5 rounded text-xs font-mono font-bold transition text-textMuted hover:text-white";
+            updateAppMetrics();
+        });
+
+        // Position Action Toggles (BUY/SELL)
+        elements.legActionBuy.addEventListener('click', () => {
+            state.legAction = 'BUY';
+            elements.legActionBuy.className = "flex-1 text-center py-1.5 rounded text-xs font-mono font-bold transition ce-active";
+            elements.legActionSell.className = "flex-1 text-center py-1.5 rounded text-xs font-mono font-bold transition text-textMuted hover:text-white";
+            updateAppMetrics();
+        });
+
+        elements.legActionSell.addEventListener('click', () => {
+            state.legAction = 'SELL';
+            elements.legActionSell.className = "flex-1 text-center py-1.5 rounded text-xs font-mono font-bold transition pe-active";
+            elements.legActionBuy.className = "flex-1 text-center py-1.5 rounded text-xs font-mono font-bold transition text-textMuted hover:text-white";
+            updateAppMetrics();
+        });
+
+        // Add Leg to Strategy
+        elements.btnAddLeg.addEventListener('click', () => {
+            // Get single BS price for the configured parameters to record entry price
+            const res = calculateBS(state.spot, state.strike, state.expiry, state.iv, state.rate, state.optionType);
+            
+            const leg = {
+                id: Date.now().toString() + Math.random().toString(36).substr(2, 5),
+                action: state.legAction,
+                type: state.optionType,
+                strike: state.strike,
+                expiry: state.expiry,
+                iv: state.iv,
+                lotSize: state.lotSize,
+                rate: state.rate,
+                price: res.price
+            };
+
+            state.strategyLegs.push(leg);
+            
+            // UI Feedback
+            renderLegsList();
+            updateAppMetrics();
+            showToast(`Added ${leg.action} ${state.instrument} ${leg.strike} ${leg.type} to strategy`);
+        });
+
+        // Clear All Strategy Legs
+        elements.btnClearStrategy.addEventListener('click', () => {
+            state.strategyLegs = [];
+            renderLegsList();
+            updateAppMetrics();
+            showToast("Cleared strategy legs");
+        });
+
+        // Delete Individual Leg
+        function deleteLeg(id) {
+            state.strategyLegs = state.strategyLegs.filter(leg => leg.id !== id);
+            renderLegsList();
+            updateAppMetrics();
+            showToast("Removed leg from strategy");
+        }
+
+        // Render Legs in Left Panel
+        function renderLegsList() {
+            const container = elements.legsListContainer;
+            const countElem = elements.legsCount;
+            const clearBtn = elements.btnClearStrategy;
+            
+            const len = state.strategyLegs.length;
+            countElem.textContent = len;
+            
+            if (len === 0) {
+                clearBtn.classList.add('hidden');
+                container.innerHTML = `<div class="text-[10px] text-slate-500 font-mono italic text-center py-4">No legs added. Single-option pricing active.</div>`;
+                return;
+            }
+            
+            clearBtn.classList.remove('hidden');
+            container.innerHTML = '';
+            
+            state.strategyLegs.forEach((leg, index) => {
+                const item = document.createElement('div');
+                item.className = "flex items-center justify-between p-2 rounded bg-slate-950 border border-panelBorder/70 text-[10px] font-mono hover:border-slate-800 transition";
+                
+                const isBuy = leg.action === 'BUY';
+                const actionPill = isBuy ? 'text-accentGreen bg-emerald-950/30' : 'text-accentRed bg-red-950/30';
+                const typePill = leg.type === 'CE' ? 'border border-emerald-900/30 text-emerald-400' : 'border border-red-900/30 text-red-400';
+                
+                item.innerHTML = `
+                    <div class="flex items-center space-x-1.5 flex-1 min-w-0 pr-2">
+                        <span class="px-1 py-0.5 rounded font-bold ${actionPill}">${leg.action}</span>
+                        <span class="px-1 py-0.5 rounded font-bold bg-slate-900 ${typePill}">${leg.type}</span>
+                        <span class="text-white font-semibold font-mono truncate">₹${leg.strike}</span>
+                        <span class="text-slate-500 text-[9px] font-mono">(${leg.expiry.toFixed(1)}d, IV:${leg.iv}%)</span>
+                    </div>
+                    <div class="flex items-center space-x-2 text-right">
+                        <span class="text-accentCyan font-bold">₹${leg.price.toFixed(2)}</span>
+                        <button onclick="deleteLeg('${leg.id}')" class="text-slate-500 hover:text-accentRed transition">
+                            <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                        </button>
+                    </div>
+                `;
+                container.appendChild(item);
+            });
+            
+            lucide.createIcons();
+        }
+
+        // Reset Handler
+        elements.btnReset.addEventListener('click', () => {
+            state.instrument = 'NIFTY';
+            state.optionType = 'CE';
+            state.legAction = 'BUY';
+            state.spot = 24013;
+            state.strike = 24000;
+            state.expiry = 7;
+            state.iv = 18;
+            state.rate = T_BILL_RATE;
+            state.lotSize = 25;
+            state.strategyLegs = [];
+
+            // Reset dropdown & button styling
+            elements.selectInstrument.value = 'NIFTY';
+            
+            // Set slider limits & steps back to Nifty values
+            const specs = INSTRUMENT_SPECS.NIFTY;
+            elements.sliderSpot.min = specs.minSpot;
+            elements.sliderSpot.max = specs.maxSpot;
+            elements.sliderSpot.step = 1;
+            elements.sliderStrike.min = specs.minSpot;
+            elements.sliderStrike.max = specs.maxSpot;
+            elements.sliderStrike.step = specs.step;
+
+            const spotMinText = elements.sliderSpot.nextElementSibling.firstElementChild;
+            const spotMaxText = elements.sliderSpot.nextElementSibling.lastElementChild;
+            if (spotMinText && spotMaxText) {
+                spotMinText.textContent = `₹${specs.minSpot.toLocaleString('en-IN')}`;
+                spotMaxText.textContent = `₹${specs.maxSpot.toLocaleString('en-IN')}`;
+            }
+
+            const strikeMinText = elements.sliderStrike.nextElementSibling.firstElementChild;
+            const strikeMaxText = elements.sliderStrike.nextElementSibling.lastElementChild;
+            if (strikeMinText && strikeMaxText) {
+                strikeMinText.textContent = `₹${specs.minSpot.toLocaleString('en-IN')}`;
+                strikeMaxText.textContent = `₹${specs.maxSpot.toLocaleString('en-IN')}`;
+            }
+
+            elements.optTypeCE.className = "flex-1 text-center py-1.5 rounded text-xs font-mono font-bold transition ce-active";
+            elements.optTypePE.className = "flex-1 text-center py-1.5 rounded text-xs font-mono font-bold transition text-textMuted hover:text-white";
+            
+            elements.legActionBuy.className = "flex-1 text-center py-1.5 rounded text-xs font-mono font-bold transition ce-active";
+            elements.legActionSell.className = "flex-1 text-center py-1.5 rounded text-xs font-mono font-bold transition text-textMuted hover:text-white";
+
+            elements.inputLotSize.value = state.lotSize;
+            elements.inputLotSize.setAttribute('readonly', 'true');
+            elements.inputLotSize.classList.remove('border-accentCyan');
+
+            elements.inputSpot.value = state.spot;
+            elements.sliderSpot.value = state.spot;
+            elements.inputStrike.value = state.strike;
+            elements.sliderStrike.value = state.strike;
+            elements.inputExpiry.value = state.expiry;
+            elements.sliderExpiry.value = state.expiry;
+            elements.inputIV.value = state.iv;
+            elements.sliderIV.value = state.iv;
+            elements.inputRate.value = state.rate.toFixed(1);
+            elements.sliderRate.value = state.rate;
+
+            renderLegsList();
+            updateAppMetrics();
+            showToast("Parameters reset to default");
+        });
+
+        // Tab Swapping
+        elements.btnTabCalc.addEventListener('click', () => {
+            state.activeTab = 'calculator';
+            elements.btnTabCalc.className = "px-4 py-2 text-sm font-medium border-b-2 border-accentCyan text-white transition-all flex items-center gap-2";
+            elements.btnTabWatchlist.className = "px-4 py-2 text-sm font-medium border-b-2 border-transparent text-textMuted hover:text-white transition-all flex items-center gap-2";
+            elements.tabCalculator.classList.remove('hidden');
+            elements.tabWatchlist.classList.add('hidden');
+            // Redraw charts since they might have been invisible
+            updateCharts();
+        });
+
+        elements.btnTabWatchlist.addEventListener('click', () => {
+            state.activeTab = 'watchlist';
+            elements.btnTabWatchlist.className = "px-4 py-2 text-sm font-medium border-b-2 border-accentCyan text-white transition-all flex items-center gap-2";
+            elements.btnTabCalc.className = "px-4 py-2 text-sm font-medium border-b-2 border-transparent text-textMuted hover:text-white transition-all flex items-center gap-2";
+            elements.tabWatchlist.classList.remove('hidden');
+            elements.tabCalculator.classList.add('hidden');
+            renderWatchlist();
+        });
+
+        // ==========================================
+        // CHARTING ENGINE (Chart.js Configuration)
+        // ==========================================
+
+        let payoffChart = null;
+        let timeDecayChart = null;
+
+        function initCharts() {
+            // Chart.js global settings for Dark Terminal design
+            Chart.defaults.color = '#94A3B8';
+            Chart.defaults.font.family = 'JetBrains Mono';
+            Chart.defaults.font.size = 10;
+            
+            // Payoff Chart setup
+            const ctxPayoff = document.getElementById('chart-payoff').getContext('2d');
+            payoffChart = new Chart(ctxPayoff, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [
+                        {
+                            label: 'Payoff at Expiry',
+                            data: [],
+                            borderColor: '#FF4A5A',
+                            borderWidth: 2,
+                            borderDash: [5, 5],
+                            pointRadius: 0,
+                            fill: false,
+                            tension: 0.1
+                        },
+                        {
+                            label: 'Option Price Today',
+                            data: [],
+                            borderColor: '#00F2FE',
+                            borderWidth: 2.5,
+                            pointRadius: 0,
+                            fill: false,
+                            tension: 0.2
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: {
+                        mode: 'index',
+                        intersect: false
+                    },
+                    plugins: {
+                        legend: {
+                            position: 'top',
+                            labels: {
+                                color: '#E2E8F0',
+                                boxWidth: 12
+                            }
+                        },
+                        tooltip: {
+                            backgroundColor: '#0F131E',
+                            titleColor: '#00F2FE',
+                            bodyColor: '#F8FAFC',
+                            borderColor: '#1E2538',
+                            borderWidth: 1,
+                            callbacks: {
+                                label: function(context) {
+                                    return ` ${context.dataset.label}: ₹${context.raw.y.toFixed(2)}`;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            type: 'linear',
+                            title: {
+                                display: true,
+                                text: 'Spot Price (₹)',
+                                color: '#94A3B8'
+                            },
+                            grid: {
+                                color: 'rgba(30, 37, 56, 0.4)',
+                                borderColor: '#1E2538'
+                            },
+                            ticks: {
+                                color: '#94A3B8'
+                            }
+                        },
+                        y: {
+                            title: {
+                                display: true,
+                                text: 'Option Premium Value (₹)',
+                                color: '#94A3B8'
+                            },
+                            grid: {
+                                color: 'rgba(30, 37, 56, 0.4)',
+                                borderColor: '#1E2538'
+                            },
+                            ticks: {
+                                color: '#94A3B8'
+                            }
+                        }
+                    }
+                },
+                plugins: [{
+                    id: 'payoffVisuals',
+                    beforeDraw: (chart) => {
+                        const isStrategy = state.strategyLegs.length > 0;
+                        if (!isStrategy) return;
+                        
+                        const ctx = chart.ctx;
+                        const xAxis = chart.scales.x;
+                        const yAxis = chart.scales.y;
+                        
+                        const yZeroPixel = yAxis.getPixelForValue(0);
+                        
+                        ctx.save();
+                        // Shade profit region (above 0) and loss region (below 0) with translucent colors
+                        if (yZeroPixel > yAxis.top) {
+                            ctx.fillStyle = 'rgba(5, 249, 167, 0.04)'; // Subtle green
+                            ctx.fillRect(xAxis.left, yAxis.top, xAxis.width, yZeroPixel - yAxis.top);
+                        }
+                        if (yZeroPixel < yAxis.bottom) {
+                            ctx.fillStyle = 'rgba(255, 74, 90, 0.04)'; // Subtle red
+                            ctx.fillRect(xAxis.left, yZeroPixel, xAxis.width, yAxis.bottom - yZeroPixel);
+                        }
+                        ctx.restore();
+                    },
+                    afterDraw: (chart) => {
+                        const isStrategy = state.strategyLegs.length > 0;
+                        if (!isStrategy) return;
+                        const bounds = calculateStrategyBoundaries();
+                        if (!bounds || !bounds.breakevens || bounds.breakevens.length === 0) return;
+                        
+                        const ctx = chart.ctx;
+                        const xAxis = chart.scales.x;
+                        const yAxis = chart.scales.y;
+                        
+                        ctx.save();
+                        bounds.breakevens.forEach(be => {
+                            if (be >= xAxis.min && be <= xAxis.max) {
+                                const xPixel = xAxis.getPixelForValue(be);
+                                
+                                // Draw vertical dashed line for breakeven points
+                                ctx.strokeStyle = 'rgba(0, 242, 254, 0.5)';
+                                ctx.lineWidth = 1.5;
+                                ctx.setLineDash([4, 4]);
+                                ctx.beginPath();
+                                ctx.moveTo(xPixel, yAxis.top);
+                                ctx.lineTo(xPixel, yAxis.bottom);
+                                ctx.stroke();
+                                
+                                // Draw text label
+                                ctx.fillStyle = '#E2E8F0';
+                                ctx.font = 'bold 9px "JetBrains Mono", monospace';
+                                ctx.textAlign = 'center';
+                                ctx.textBaseline = 'bottom';
+                                ctx.fillText(`BE: ₹${Math.round(be)}`, xPixel, yAxis.top - 4);
+                            }
+                        });
+                        ctx.restore();
+                    }
+                }]
+            });
+
+            // Decay Profile Chart setup (Dual axis)
+            const ctxDecay = document.getElementById('chart-time-decay').getContext('2d');
+            timeDecayChart = new Chart(ctxDecay, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [
+                        {
+                            label: 'Lot Daily Decay (Theta)',
+                            data: [],
+                            borderColor: '#FF4A5A',
+                            borderWidth: 2,
+                            pointRadius: 0,
+                            yAxisID: 'yTheta',
+                            fill: false,
+                            tension: 0.1
+                        },
+                        {
+                            label: 'Position Gamma',
+                            data: [],
+                            borderColor: '#05F9A7',
+                            borderWidth: 2,
+                            pointRadius: 0,
+                            yAxisID: 'yGamma',
+                            fill: false,
+                            tension: 0.1
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: {
+                        mode: 'index',
+                        intersect: false
+                    },
+                    plugins: {
+                        legend: {
+                            position: 'top',
+                            labels: {
+                                color: '#E2E8F0',
+                                boxWidth: 12
+                            }
+                        },
+                        tooltip: {
+                            backgroundColor: '#0F131E',
+                            titleColor: '#05F9A7',
+                            bodyColor: '#F8FAFC',
+                            borderColor: '#1E2538',
+                            borderWidth: 1,
+                            callbacks: {
+                                label: function(context) {
+                                    if(context.datasetIndex === 0) {
+                                        return ` Decay/Day: -₹${Math.abs(context.raw.y).toFixed(2)}`;
+                                    } else {
+                                        return ` Position Gamma: ${context.raw.y.toFixed(5)}`;
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            type: 'linear',
+                            title: {
+                                display: true,
+                                text: 'Days to Expiry',
+                                color: '#94A3B8'
+                            },
+                            grid: {
+                                color: 'rgba(30, 37, 56, 0.4)',
+                                borderColor: '#1E2538'
+                            },
+                            ticks: {
+                                color: '#94A3B8'
+                            },
+                            reverse: true // countdown from input to 0
+                        },
+                        yTheta: {
+                            type: 'linear',
+                            position: 'left',
+                            title: {
+                                display: true,
+                                text: 'Lot Theta Decay (₹/day)',
+                                color: '#FF4A5A'
+                            },
+                            grid: {
+                                color: 'rgba(30, 37, 56, 0.2)'
+                            },
+                            ticks: {
+                                color: '#FF4A5A'
+                            }
+                        },
+                        yGamma: {
+                            type: 'linear',
+                            position: 'right',
+                            title: {
+                                display: true,
+                                text: 'Position Gamma',
+                                color: '#05F9A7'
+                            },
+                            grid: {
+                                drawOnChartArea: false // prevent grid overlap
+                            },
+                            ticks: {
+                                color: '#05F9A7'
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Strategy Boundaries Logic (Max Profit, Max Loss, and Breakevens)
+        function calculateStrategyBoundaries() {
+            const legs = state.strategyLegs;
+            if (legs.length === 0) return null;
+
+            // Calculate net entry premium paid
+            let netEntryPremium = 0;
+            legs.forEach(leg => {
+                const d_i = leg.action === 'BUY' ? 1 : -1;
+                netEntryPremium += d_i * leg.price * leg.lotSize;
+            });
+
+            // Payoff function at expiry
+            function getExpiryPL(s) {
+                let payoff = 0;
+                legs.forEach(leg => {
+                    const d_i = leg.action === 'BUY' ? 1 : -1;
+                    const intrinsic = leg.type === 'CE' ? Math.max(0, s - leg.strike) : Math.max(0, leg.strike - s);
+                    payoff += d_i * intrinsic * leg.lotSize;
+                });
+                return payoff - netEntryPremium;
+            }
+
+            // Identify critical strike points
+            const strikes = legs.map(l => l.strike);
+            const uniqueStrikes = [...new Set(strikes)].sort((a, b) => a - b);
+            
+            // Boundary points for evaluation
+            const minStrike = uniqueStrikes[0] || 24000;
+            const maxStrike = uniqueStrikes[uniqueStrikes.length - 1] || 24000;
+            const range = maxStrike - minStrike;
+            const padding = range === 0 ? 5000 : range * 2;
+            
+            const evaluationPoints = [
+                0,
+                ...uniqueStrikes,
+                maxStrike + padding
+            ];
+            
+            const sortedPoints = [...new Set(evaluationPoints)].sort((a, b) => a - b);
+            const evaluations = sortedPoints.map(p => ({ x: p, y: getExpiryPL(p) }));
+            
+            // Check asymptotic slopes
+            const plAtZero = getExpiryPL(0);
+            const plAtTiny = getExpiryPL(1);
+            const lowSlope = plAtTiny - plAtZero;
+
+            const plAtLarge = getExpiryPL(maxStrike + padding);
+            const plAtLarger = getExpiryPL(maxStrike + padding + 100);
+            const highSlope = plAtLarger - plAtLarge;
+
+            // Max Profit
+            let maxProfitVal = -Infinity;
+            let isMaxProfitUnlimited = false;
+            // low-end slope doesn't lead to unlimited because S cannot go below 0
+            if (highSlope > 0.01) { // positive slope at infinity
+                isMaxProfitUnlimited = true;
+            }
+            if (!isMaxProfitUnlimited) {
+                maxProfitVal = Math.max(...evaluations.map(e => e.y));
+            }
+
+            // Max Loss
+            let maxLossVal = Infinity;
+            let isMaxLossUnlimited = false;
+            if (highSlope < -0.01) { // negative slope at infinity
+                isMaxLossUnlimited = true;
+            }
+            if (!isMaxLossUnlimited) {
+                maxLossVal = Math.min(...evaluations.map(e => e.y));
+            }
+
+            // Breakeven Points (intervals sign check)
+            const breakevens = [];
+            for (let i = 0; i < sortedPoints.length - 1; i++) {
+                const x1 = sortedPoints[i];
+                const x2 = sortedPoints[i+1];
+                const y1 = getExpiryPL(x1);
+                const y2 = getExpiryPL(x2);
+                
+                if ((y1 >= 0 && y2 < 0) || (y1 < 0 && y2 >= 0)) {
+                    const be = x1 + (0 - y1) * (x2 - x1) / (y2 - y1);
+                    breakevens.push(be);
+                }
+            }
+            
+            return {
+                maxProfit: isMaxProfitUnlimited ? "Unlimited" : maxProfitVal,
+                maxLoss: isMaxLossUnlimited ? "Unlimited" : maxLossVal,
+                breakevens: breakevens.sort((a, b) => a - b)
+            };
+        }
+
+        function updateCharts() {
+            if (!payoffChart || !timeDecayChart) return;
+
+            const isStrategy = state.strategyLegs.length > 0;
+            
+            // --- 1. Payoff Chart Data Generation ---
+            let centerSpot = state.strike;
+            if (isStrategy) {
+                const strikes = state.strategyLegs.map(l => l.strike);
+                centerSpot = strikes.reduce((a, b) => a + b, 0) / strikes.length;
+            }
+
+            const spotRangeMin = centerSpot * 0.8;
+            const spotRangeMax = centerSpot * 1.2;
+            const steps = 60;
+            const stepVal = (spotRangeMax - spotRangeMin) / steps;
+            
+            const payoffExpiryData = [];
+            const payoffTodayData = [];
+
+            // Calculate net entry premium if in strategy mode
+            let netEntryPremium = 0;
+            if (isStrategy) {
+                state.strategyLegs.forEach(leg => {
+                    const d_i = leg.action === 'BUY' ? 1 : -1;
+                    netEntryPremium += d_i * leg.price * leg.lotSize;
+                });
+            }
+
+            for (let i = 0; i <= steps; i++) {
+                const s = spotRangeMin + (i * stepVal);
+                
+                if (isStrategy) {
+                    // Strategy P&L Today
+                    let todayPL = 0;
+                    let expiryPL = 0;
+                    state.strategyLegs.forEach(leg => {
+                        const d_i = leg.action === 'BUY' ? 1 : -1;
+                        const resToday = calculateBS(s, leg.strike, leg.expiry, leg.iv, leg.rate, leg.type);
+                        const resExpiry = calculateBS(s, leg.strike, 0, leg.iv, leg.rate, leg.type);
+                        todayPL += d_i * resToday.price * leg.lotSize;
+                        expiryPL += d_i * resExpiry.price * leg.lotSize;
+                    });
+                    payoffTodayData.push({ x: s, y: todayPL - netEntryPremium });
+                    payoffExpiryData.push({ x: s, y: expiryPL - netEntryPremium });
+                } else {
+                    // Single Option Premium
+                    const currentRes = calculateBS(s, state.strike, state.expiry, state.iv, state.rate, state.optionType);
+                    payoffTodayData.push({ x: s, y: currentRes.price });
+
+                    const expiryRes = calculateBS(s, state.strike, 0, state.iv, state.rate, state.optionType);
+                    payoffExpiryData.push({ x: s, y: expiryRes.price });
+                }
+            }
+
+            // Update Chart datasets
+            if (isStrategy) {
+                payoffChart.data.datasets[0].label = 'Expiry P&L (₹)';
+                payoffChart.data.datasets[0].borderColor = '#FF4A5A'; // red dashed expiry line
+                payoffChart.data.datasets[0].borderDash = [5, 5];
+                payoffChart.data.datasets[1].label = 'Today P&L (₹)';
+                payoffChart.data.datasets[1].borderColor = '#00F2FE'; // cyan solid today line
+                payoffChart.data.datasets[1].borderDash = [];
+                
+                payoffChart.options.scales.y.title.text = 'Strategy Profit / Loss (₹)';
+                
+                // Highlight zero-line in Strategy Mode
+                payoffChart.options.scales.y.grid.color = function(context) {
+                    if (context.tick.value === 0) return '#00F2FE';
+                    return 'rgba(30, 37, 56, 0.4)';
+                };
+                payoffChart.options.scales.y.grid.lineWidth = function(context) {
+                    if (context.tick.value === 0) return 2;
+                    return 1;
+                };
+            } else {
+                payoffChart.data.datasets[0].label = 'Payoff at Expiry';
+                payoffChart.data.datasets[0].borderColor = '#FF4A5A';
+                payoffChart.data.datasets[0].borderDash = [5, 5];
+                
+                const colorOption = state.optionType === 'CE' ? '#05F9A7' : '#FF4A5A';
+                payoffChart.data.datasets[1].label = `Price (T = ${state.expiry.toFixed(1)} days)`;
+                payoffChart.data.datasets[1].borderColor = colorOption;
+                payoffChart.data.datasets[1].borderDash = [];
+                
+                payoffChart.options.scales.y.title.text = 'Option Premium Value (₹)';
+                payoffChart.options.scales.y.grid.color = 'rgba(30, 37, 56, 0.4)';
+                payoffChart.options.scales.y.grid.lineWidth = 1;
+            }
+
+            payoffChart.data.datasets[0].data = payoffExpiryData;
+            payoffChart.data.datasets[1].data = payoffTodayData;
+            
+            payoffChart.options.scales.x.min = spotRangeMin;
+            payoffChart.options.scales.x.max = spotRangeMax;
+            payoffChart.update('none');
+
+            // --- 2. Time Decay Chart Data Generation ---
+            const decayThetaData = [];
+            const decayGammaData = [];
+            
+            let daysLimit = state.expiry;
+            if (isStrategy) {
+                // If strategy mode, center on max expiry among legs
+                const expiries = state.strategyLegs.map(l => l.expiry);
+                daysLimit = Math.max(...expiries);
+            }
+            if (daysLimit <= 0) daysLimit = 10;
+            
+            const decaySteps = 30;
+            const timeStep = daysLimit / decaySteps;
+
+            for (let i = 0; i <= decaySteps; i++) {
+                const days = daysLimit - (i * timeStep);
+                let netTheta = 0;
+                let netGamma = 0;
+                
+                if (isStrategy) {
+                    state.strategyLegs.forEach(leg => {
+                        const d_i = leg.action === 'BUY' ? 1 : -1;
+                        const res = calculateBS(state.spot, leg.strike, days, leg.iv, leg.rate, leg.type);
+                        netTheta += d_i * res.thetaDaily * leg.lotSize;
+                        netGamma += d_i * res.gamma * leg.lotSize;
+                    });
+                } else {
+                    const res = calculateBS(state.spot, state.strike, days, state.iv, state.rate, state.optionType);
+                    netTheta = res.thetaDaily * state.lotSize;
+                    netGamma = res.gamma * state.lotSize;
+                }
+                
+                decayThetaData.push({ x: days, y: netTheta });
+                decayGammaData.push({ x: days, y: netGamma });
+            }
+
+            timeDecayChart.data.datasets[0].data = decayThetaData;
+            timeDecayChart.data.datasets[1].data = decayGammaData;
+            
+            timeDecayChart.options.scales.x.min = 0;
+            timeDecayChart.options.scales.x.max = daysLimit;
+            
+            timeDecayChart.update('none');
+        }
+
+        // ==========================================
+        // MAIN APP RENDERING & VALUE UPDATING
+        // ==========================================
+
+        function updateAppMetrics() {
+            const isStrategy = state.strategyLegs.length > 0;
+            
+            if (!isStrategy) {
+                // SINGLE OPTION WORKSPACE MODE
+                elements.strategyBoundariesRow.classList.add('hidden');
+                
+                elements.lblPremiumCard.textContent = "Lot Option Premium";
+                elements.lblPremiumSub.textContent = "Total Premium per Lot";
+                elements.lblSharePrice.textContent = "Price per Share:";
+                elements.valPremiumSign.textContent = "₹";
+                
+                const res = calculateBS(state.spot, state.strike, state.expiry, state.iv, state.rate, state.optionType);
+                const sharePrice = res.price;
+                const lotPremium = sharePrice * state.lotSize;
+                const lotDelta = res.delta * state.lotSize;
+                const lotVega = res.vega1Pct * state.lotSize;
+                const lotTheta = res.thetaDaily * state.lotSize;
+
+                elements.valSharePrice.textContent = `₹${sharePrice.toFixed(2)}`;
+                elements.valTotalPremium.textContent = lotPremium.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                
+                const deltaPrefix = res.delta >= 0 ? '+' : '';
+                elements.valDelta.textContent = deltaPrefix + res.delta.toFixed(4);
+                elements.valLotDelta.textContent = (lotDelta >= 0 ? '+' : '') + lotDelta.toFixed(2);
+                
+                elements.valGamma.textContent = res.gamma.toFixed(5);
+                elements.valVega.textContent = res.vega1Pct.toFixed(4);
+                elements.valLotVega.textContent = `₹${lotVega.toFixed(2)}`;
+                
+                elements.valTheta.textContent = res.thetaDaily.toFixed(4);
+                elements.valLotTheta.textContent = `-₹${Math.abs(lotTheta).toFixed(2)}`;
+            } else {
+                // MULTI-LEG STRATEGY WORKSPACE MODE
+                elements.strategyBoundariesRow.classList.remove('hidden');
+                
+                let netSharePrice = 0;
+                let netLotPremium = 0;
+                let netDelta = 0;
+                let netLotDelta = 0;
+                let netGamma = 0;
+                let netVega1Pct = 0;
+                let netLotVega = 0;
+                let netThetaDaily = 0;
+                let netLotTheta = 0;
+
+                state.strategyLegs.forEach(leg => {
+                    const d_i = leg.action === 'BUY' ? 1 : -1;
+                    const res = calculateBS(state.spot, leg.strike, leg.expiry, leg.iv, leg.rate, leg.type);
+                    
+                    netSharePrice += d_i * res.price;
+                    netLotPremium += d_i * res.price * leg.lotSize;
+                    netDelta += d_i * res.delta;
+                    netLotDelta += d_i * res.delta * leg.lotSize;
+                    netGamma += d_i * res.gamma;
+                    netVega1Pct += d_i * res.vega1Pct;
+                    netLotVega += d_i * res.vega1Pct * leg.lotSize;
+                    netThetaDaily += d_i * res.thetaDaily;
+                    netLotTheta += d_i * res.thetaDaily * leg.lotSize;
+                });
+
+                // Display Premium (Net Debit / Net Credit)
+                const isDebit = netLotPremium >= 0;
+                elements.lblPremiumCard.textContent = isDebit ? "Net Debit per Lot" : "Net Credit per Lot";
+                elements.lblPremiumSub.textContent = isDebit ? "Premium Paid (Debit Strategy)" : "Premium Received (Credit Strategy)";
+                elements.lblSharePrice.textContent = "Net Price per Share:";
+                elements.valTotalPremium.textContent = Math.abs(netLotPremium).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                elements.valSharePrice.textContent = `₹${Math.abs(netSharePrice).toFixed(2)}`;
+
+                // Combined Greeks
+                const deltaPrefix = netDelta >= 0 ? '+' : '';
+                elements.valDelta.textContent = deltaPrefix + netDelta.toFixed(4);
+                elements.valLotDelta.textContent = (netLotDelta >= 0 ? '+' : '') + netLotDelta.toFixed(2);
+                elements.valGamma.textContent = netGamma.toFixed(5);
+                
+                elements.valVega.textContent = netVega1Pct.toFixed(4);
+                elements.valLotVega.textContent = (netLotVega >= 0 ? '+' : '-') + `₹${Math.abs(netLotVega).toFixed(2)}`;
+                
+                elements.valTheta.textContent = netThetaDaily.toFixed(4);
+                elements.valLotTheta.textContent = (netLotTheta >= 0 ? '+' : '-') + `₹${Math.abs(netLotTheta).toFixed(2)}`;
+
+                // Max Profit, Max Loss, Breakevens calculations
+                const bounds = calculateStrategyBoundaries();
+                if (bounds) {
+                    // Max Profit
+                    if (bounds.maxProfit === "Unlimited") {
+                        elements.valMaxProfit.textContent = "Unlimited";
+                        elements.valMaxProfit.className = "text-base font-bold font-mono text-accentGreen";
+                    } else {
+                        elements.valMaxProfit.textContent = bounds.maxProfit >= 0 
+                            ? `₹${bounds.maxProfit.toLocaleString('en-IN', { maximumFractionDigits: 0 })}` 
+                            : `-₹${Math.abs(bounds.maxProfit).toLocaleString('en-IN', { maximumFractionDigits: 0 })}`;
+                        elements.valMaxProfit.className = bounds.maxProfit >= 0 
+                            ? "text-base font-bold font-mono text-accentGreen" 
+                            : "text-base font-bold font-mono text-accentRed";
+                    }
+
+                    // Max Loss
+                    if (bounds.maxLoss === "Unlimited") {
+                        elements.valMaxLoss.textContent = "Unlimited";
+                        elements.valMaxLoss.className = "text-base font-bold font-mono text-accentRed";
+                    } else {
+                        elements.valMaxLoss.textContent = bounds.maxLoss >= 0 
+                            ? `₹${bounds.maxLoss.toLocaleString('en-IN', { maximumFractionDigits: 0 })}` 
+                            : `-₹${Math.abs(bounds.maxLoss).toLocaleString('en-IN', { maximumFractionDigits: 0 })}`;
+                        elements.valMaxLoss.className = bounds.maxLoss >= 0 
+                            ? "text-base font-bold font-mono text-accentGreen" 
+                            : "text-base font-bold font-mono text-accentRed";
+                    }
+
+                    // Breakevens
+                    if (bounds.breakevens.length === 0) {
+                        elements.valBreakevens.textContent = "None";
+                    } else {
+                        elements.valBreakevens.textContent = bounds.breakevens
+                            .map(b => `₹${Math.round(b).toLocaleString('en-IN')}`)
+                            .join(', ');
+                    }
+                }
+            }
+
+            // 4. Trigger charts refresh
+            if (state.activeTab === 'calculator') {
+                updateCharts();
+            }
+        }
+
+        // ==========================================
+        // WATCHLIST STATE & LOCALSTORAGE CRUD
+        // ==========================================
+
+        function loadWatchlist() {
+            const stored = localStorage.getItem('paisapricer_watchlist');
+            if (stored) {
+                try {
+                    state.watchlist = JSON.parse(stored);
+                } catch(e) {
+                    state.watchlist = [];
+                }
+            } else {
+                state.watchlist = [];
+            }
+            elements.watchlistCount.textContent = state.watchlist.length;
+        }
+
+        function saveWatchlist() {
+            localStorage.setItem('paisapricer_watchlist', JSON.stringify(state.watchlist));
+            elements.watchlistCount.textContent = state.watchlist.length;
+        }
+
+        elements.btnAddWatchlist.addEventListener('click', () => {
+            const isStrategy = state.strategyLegs.length > 0;
+            let item;
+
+            if (isStrategy) {
+                // Save whole multi-leg strategy
+                const expiries = state.strategyLegs.map(l => l.expiry);
+                const maxExpiry = Math.max(...expiries);
+                const averageIV = state.strategyLegs.reduce((sum, l) => sum + l.iv, 0) / state.strategyLegs.length;
+                
+                let netLotPremium = 0;
+                let netDelta = 0;
+                let netLotDelta = 0;
+                let netThetaDaily = 0;
+                let netLotTheta = 0;
+
+                state.strategyLegs.forEach(leg => {
+                    const d_i = leg.action === 'BUY' ? 1 : -1;
+                    const res = calculateBS(state.spot, leg.strike, leg.expiry, leg.iv, leg.rate, leg.type);
+                    netLotPremium += d_i * res.price * leg.lotSize;
+                    netDelta += d_i * res.delta;
+                    netLotDelta += d_i * res.delta * leg.lotSize;
+                    netThetaDaily += d_i * res.thetaDaily;
+                    netLotTheta += d_i * res.thetaDaily * leg.lotSize;
+                });
+
+                const contractName = `${state.instrument} Strategy (${state.strategyLegs.length} Legs)`;
+                
+                item = {
+                    id: Date.now().toString(),
+                    name: contractName,
+                    isStrategy: true,
+                    legs: JSON.parse(JSON.stringify(state.strategyLegs)),
+                    instrument: state.instrument,
+                    spot: state.spot,
+                    expiry: maxExpiry,
+                    iv: averageIV,
+                    price: netLotPremium / state.lotSize,
+                    totalPremium: netLotPremium,
+                    lotDelta: netLotDelta,
+                    lotTheta: netLotTheta,
+                    timestamp: new Date().toISOString()
+                };
+            } else {
+                // Save single option
+                const typeStr = state.optionType;
+                const instStr = state.instrument === 'CUSTOM' ? 'CUST' : state.instrument;
+                const contractName = `${instStr} ${state.strike} ${typeStr}`;
+                
+                const res = calculateBS(state.spot, state.strike, state.expiry, state.iv, state.rate, state.optionType);
+                
+                item = {
+                    id: Date.now().toString(),
+                    name: contractName,
+                    isStrategy: false,
+                    legs: null,
+                    instrument: state.instrument,
+                    optionType: state.optionType,
+                    spot: state.spot,
+                    strike: state.strike,
+                    expiry: state.expiry,
+                    iv: state.iv,
+                    rate: state.rate,
+                    lotSize: state.lotSize,
+                    price: res.price,
+                    totalPremium: res.price * state.lotSize,
+                    lotDelta: res.delta * state.lotSize,
+                    lotTheta: res.thetaDaily * state.lotSize,
+                    timestamp: new Date().toISOString()
+                };
+            }
+            
+            state.watchlist.unshift(item); // insert at start
+            saveWatchlist();
+            showToast(`Saved strategy to watchlist`);
+        });
+
+        elements.btnClearWatchlist.addEventListener('click', () => {
+            if (confirm("Are you sure you want to clear the entire watchlist?")) {
+                state.watchlist = [];
+                saveWatchlist();
+                renderWatchlist();
+                showToast("Watchlist cleared");
+            }
+        });
+
+        function deleteWatchlistItem(id) {
+            state.watchlist = state.watchlist.filter(item => item.id !== id);
+            saveWatchlist();
+            renderWatchlist();
+            showToast("Contract removed from watchlist");
+        }
+
+        function loadWatchlistItemToCalculator(id) {
+            const item = state.watchlist.find(x => x.id === id);
+            if (!item) return;
+
+            // Load parameters back into state
+            state.instrument = item.instrument;
+            state.spot = item.spot;
+
+            // Check if it's a strategy
+            if (item.isStrategy && item.legs && item.legs.length > 0) {
+                state.strategyLegs = JSON.parse(JSON.stringify(item.legs));
+                
+                // Use parameters from the first leg to populate builder inputs
+                const firstLeg = item.legs[0];
+                state.optionType = firstLeg.type;
+                state.legAction = firstLeg.action;
+                state.strike = firstLeg.strike;
+                state.expiry = firstLeg.expiry;
+                state.iv = firstLeg.iv;
+                state.rate = firstLeg.rate;
+                state.lotSize = firstLeg.lotSize;
+            } else {
+                state.strategyLegs = [];
+                state.optionType = item.optionType;
+                state.legAction = 'BUY'; // default
+                state.strike = item.strike;
+                state.expiry = item.expiry;
+                state.iv = item.iv;
+                state.rate = item.rate;
+                state.lotSize = item.lotSize;
+            }
+
+            // Update parameters in UI
+            // Reset instruments active states
+            // Update parameters in UI
+            // Reset instrument select dropdown
+            elements.selectInstrument.value = state.instrument;
+            
+            // Set slider limits and steps dynamically based on loaded instrument specifications
+            const specs = INSTRUMENT_SPECS[state.instrument];
+            if (specs) {
+                elements.sliderSpot.min = specs.minSpot;
+                elements.sliderSpot.max = specs.maxSpot;
+                elements.sliderSpot.step = 1;
+                
+                const spotMinText = elements.sliderSpot.nextElementSibling.firstElementChild;
+                const spotMaxText = elements.sliderSpot.nextElementSibling.lastElementChild;
+                if (spotMinText && spotMaxText) {
+                    spotMinText.textContent = `₹${specs.minSpot.toLocaleString('en-IN')}`;
+                    spotMaxText.textContent = `₹${specs.maxSpot.toLocaleString('en-IN')}`;
+                }
+                
+                elements.sliderStrike.min = specs.minSpot;
+                elements.sliderStrike.max = specs.maxSpot;
+                elements.sliderStrike.step = specs.step;
+                
+                const strikeMinText = elements.sliderStrike.nextElementSibling.firstElementChild;
+                const strikeMaxText = elements.sliderStrike.nextElementSibling.lastElementChild;
+                if (strikeMinText && strikeMaxText) {
+                    strikeMinText.textContent = `₹${specs.minSpot.toLocaleString('en-IN')}`;
+                    strikeMaxText.textContent = `₹${specs.maxSpot.toLocaleString('en-IN')}`;
+                }
+            }
+
+            // Reset option type selectors
+            if (state.optionType === 'CE') {
+                elements.optTypeCE.className = "flex-1 text-center py-1.5 rounded text-xs font-mono font-bold transition ce-active";
+                elements.optTypePE.className = "flex-1 text-center py-1.5 rounded text-xs font-mono font-bold transition text-textMuted hover:text-white";
+            } else {
+                elements.optTypePE.className = "flex-1 text-center py-1.5 rounded text-xs font-mono font-bold transition pe-active";
+                elements.optTypeCE.className = "flex-1 text-center py-1.5 rounded text-xs font-mono font-bold transition text-textMuted hover:text-white";
+            }
+
+            // Reset position action selectors
+            if (state.legAction === 'BUY') {
+                elements.legActionBuy.className = "flex-1 text-center py-1.5 rounded text-xs font-mono font-bold transition ce-active";
+                elements.legActionSell.className = "flex-1 text-center py-1.5 rounded text-xs font-mono font-bold transition text-textMuted hover:text-white";
+            } else {
+                elements.legActionSell.className = "flex-1 text-center py-1.5 rounded text-xs font-mono font-bold transition pe-active";
+                elements.legActionBuy.className = "flex-1 text-center py-1.5 rounded text-xs font-mono font-bold transition text-textMuted hover:text-white";
+            }
+
+            // Set Inputs and Sliders
+            elements.inputLotSize.value = state.lotSize;
+            if (state.instrument === 'CUSTOM') {
+                elements.inputLotSize.removeAttribute('readonly');
+                elements.inputLotSize.classList.add('border-accentCyan');
+            } else {
+                elements.inputLotSize.setAttribute('readonly', 'true');
+                elements.inputLotSize.classList.remove('border-accentCyan');
+            }
+
+            elements.inputSpot.value = state.spot;
+            elements.sliderSpot.value = state.spot;
+            elements.inputStrike.value = state.strike;
+            elements.sliderStrike.value = state.strike;
+            elements.inputExpiry.value = state.expiry;
+            elements.sliderExpiry.value = state.expiry;
+            elements.inputIV.value = state.iv;
+            elements.sliderIV.value = state.iv;
+            elements.inputRate.value = state.rate.toFixed(1);
+            elements.sliderRate.value = state.rate;
+
+            // Trigger Tab Switch
+            elements.btnTabCalc.click();
+            renderLegsList();
+            updateAppMetrics();
+            
+            showToast(`Loaded ${item.name} workspace`);
+        }
+
+        function renderWatchlist() {
+            if (state.watchlist.length === 0) {
+                elements.watchlistEmpty.classList.remove('hidden');
+                elements.watchlistTableContainer.classList.add('hidden');
+                return;
+            }
+
+            elements.watchlistEmpty.classList.add('hidden');
+            elements.watchlistTableContainer.classList.remove('hidden');
+            elements.watchlistTbody.innerHTML = '';
+
+            state.watchlist.forEach(item => {
+                const tr = document.createElement('tr');
+                tr.className = "border-b border-panelBorder hover:bg-slate-900/30 transition duration-150";
+                
+                let pillText = "";
+                let pillColor = "";
+                let spotStrikeHTML = "";
+                let optionPriceHTML = "";
+                let lotPremiumHTML = "";
+                
+                if (item.isStrategy) {
+                    pillText = `STRATEGY (${item.legs.length}L)`;
+                    pillColor = 'bg-indigo-950 text-indigo-400 border border-indigo-900/40 animate-pulse';
+                    spotStrikeHTML = `
+                        <div>S: ₹${item.spot}</div>
+                        <div class="text-[10px] text-textMuted">Strikes: ${item.legs.map(l => l.strike).join(', ')}</div>
+                    `;
+                    
+                    const isDebit = item.totalPremium >= 0;
+                    optionPriceHTML = `₹${Math.abs(item.price).toFixed(2)} ${isDebit ? '(Dr)' : '(Cr)'}`;
+                    lotPremiumHTML = `₹${Math.abs(item.totalPremium).toLocaleString('en-IN', { maximumFractionDigits: 2 })} ${isDebit ? 'Dr' : 'Cr'}`;
+                } else {
+                    pillText = item.optionType;
+                    const isCE = item.optionType === 'CE';
+                    pillColor = isCE ? 'bg-emerald-950 text-accentGreen border border-emerald-900/40' : 'bg-red-950 text-accentRed border border-red-900/40';
+                    spotStrikeHTML = `
+                        <div>S: ₹${item.spot}</div>
+                        <div class="text-[10px] text-textMuted">K: ₹${item.strike}</div>
+                    `;
+                    optionPriceHTML = `₹${item.price.toFixed(2)}`;
+                    lotPremiumHTML = `₹${item.totalPremium.toLocaleString('en-IN', { maximumFractionDigits: 2 })}`;
+                }
+                
+                // Format Greeks signs
+                const deltaSign = item.lotDelta >= 0 ? '+' : '';
+                const deltaColor = item.lotDelta >= 0 ? 'text-accentGreen' : 'text-accentRed';
+                
+                const thetaSign = item.lotTheta >= 0 ? '+' : '-';
+                const thetaColor = item.lotTheta >= 0 ? 'text-accentGreen' : 'text-accentRed';
+
+                tr.innerHTML = `
+                    <td class="p-4 font-semibold text-white">
+                        <div class="flex items-center space-x-2">
+                            <span class="px-2 py-0.5 rounded text-[10px] font-bold ${pillColor}">${pillText}</span>
+                            <span>${item.name}</span>
+                        </div>
+                    </td>
+                    <td class="p-4 text-right">
+                        ${spotStrikeHTML}
+                    </td>
+                    <td class="p-4 text-center">${typeof item.iv === 'number' ? item.iv.toFixed(1) : item.iv}%</td>
+                    <td class="p-4 text-right">${item.expiry.toFixed(1)} d</td>
+                    <td class="p-4 text-right font-bold text-white">${optionPriceHTML}</td>
+                    <td class="p-4 text-right font-bold text-accentCyan">${lotPremiumHTML}</td>
+                    <td class="p-4 text-right ${deltaColor}">
+                        ${deltaSign}${item.lotDelta.toFixed(2)}
+                    </td>
+                    <td class="p-4 text-right ${thetaColor}">
+                        ${thetaSign}₹${Math.abs(item.lotTheta).toFixed(2)}
+                    </td>
+                    <td class="p-4 text-center">
+                        <div class="flex items-center justify-center space-x-2">
+                            <button onclick="loadWatchlistItemToCalculator('${item.id}')" class="px-2.5 py-1 bg-slate-950 border border-panelBorder hover:border-accentCyan/50 hover:text-accentCyan rounded font-bold text-[10px] tracking-wider uppercase transition">
+                                Analyze
+                            </button>
+                            <button onclick="exportWatchlistReport('${item.id}')" class="p-1.5 text-slate-500 hover:text-accentCyan rounded transition" title="Export Report">
+                                <i data-lucide="download" class="w-4 h-4"></i>
+                            </button>
+                            <button onclick="deleteWatchlistItem('${item.id}')" class="p-1.5 text-slate-500 hover:text-accentRed rounded transition" title="Delete Saved Strategy">
+                                <i data-lucide="trash-2" class="w-4 h-4"></i>
+                            </button>
+                        </div>
+                    </td>
+                `;
+                elements.watchlistTbody.appendChild(tr);
+            });
+            
+            lucide.createIcons();
+        }
+
+        // ==========================================
+        // REPORT GENERATION & DOWNLOAD
+        // ==========================================
+        function exportReport() {
+            const isStrategy = state.strategyLegs.length > 0;
+            const timestamp = elements.liveTimer.textContent;
+            
+            // Extract chart images
+            let payoffChartImg = '';
+            let decayChartImg = '';
+            
+            try {
+                if (payoffChart) {
+                    payoffChartImg = payoffChart.toBase64Image();
+                }
+                if (timeDecayChart) {
+                    decayChartImg = timeDecayChart.toBase64Image();
+                }
+            } catch(e) {
+                console.error("Failed to capture chart images", e);
+            }
+            
+            // Gather values
+            const instrument = state.instrument;
+            const spot = state.spot;
+            const lotSize = state.lotSize;
+            
+            let premiumLabel = '';
+            let premiumVal = '';
+            let sharePriceVal = '';
+            let maxProfitHTML = '';
+            let maxLossHTML = '';
+            let breakevensHTML = '';
+            
+            let legsTableHTML = '';
+            let greeksTableHTML = '';
+            
+            if (!isStrategy) {
+                // Single contract
+                const res = calculateBS(state.spot, state.strike, state.expiry, state.iv, state.rate, state.optionType);
+                const totalPremium = res.price * state.lotSize;
+                premiumLabel = "Lot Option Premium";
+                premiumVal = `₹${totalPremium.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+                sharePriceVal = `₹${res.price.toFixed(2)}`;
+                
+                maxProfitHTML = state.optionType === 'CE' ? 'Unlimited' : `₹${(state.strike * state.lotSize - totalPremium).toLocaleString('en-IN')}`;
+                maxLossHTML = `₹${totalPremium.toLocaleString('en-IN')}`;
+                
+                const bePrice = state.optionType === 'CE' ? (state.strike + res.price) : (state.strike - res.price);
+                breakevensHTML = `₹${Math.round(bePrice).toLocaleString('en-IN')}`;
+                
+                legsTableHTML = `
+                    <tr class="border-b border-slate-200">
+                        <td class="px-4 py-2 font-mono">#1</td>
+                        <td class="px-4 py-2">${state.optionType}</td>
+                        <td class="px-4 py-2 text-green-600 font-semibold">BUY (Long)</td>
+                        <td class="px-4 py-2">₹${state.strike}</td>
+                        <td class="px-4 py-2">${state.expiry.toFixed(1)} Days</td>
+                        <td class="px-4 py-2">${state.iv}%</td>
+                        <td class="px-4 py-2">${state.lotSize}</td>
+                        <td class="px-4 py-2 text-right">₹${res.price.toFixed(2)}</td>
+                    </tr>
+                `;
+                
+                greeksTableHTML = `
+                    <tr class="border-b border-slate-200">
+                        <td class="px-4 py-2 font-semibold">Delta (&Delta;)</td>
+                        <td class="px-4 py-2">${res.delta.toFixed(4)}</td>
+                        <td class="px-4 py-2">${(res.delta * state.lotSize).toFixed(2)} shares</td>
+                    </tr>
+                    <tr class="border-b border-slate-200">
+                        <td class="px-4 py-2 font-semibold">Gamma (&Gamma;)</td>
+                        <td class="px-4 py-2">${res.gamma.toFixed(5)}</td>
+                        <td class="px-4 py-2">Per ₹1 Spot change</td>
+                    </tr>
+                    <tr class="border-b border-slate-200">
+                        <td class="px-4 py-2 font-semibold">Vega (&nu;)</td>
+                        <td class="px-4 py-2">${res.vega1Pct.toFixed(4)}</td>
+                        <td class="px-4 py-2">₹${(res.vega1Pct * state.lotSize).toFixed(2)} (per 1% IV shift)</td>
+                    </tr>
+                    <tr class="border-b border-slate-200">
+                        <td class="px-4 py-2 font-semibold">Theta (&Theta;)</td>
+                        <td class="px-4 py-2">${res.thetaDaily.toFixed(4)}</td>
+                        <td class="px-4 py-2">-₹${Math.abs(res.thetaDaily * state.lotSize).toFixed(2)} (daily decay)</td>
+                    </tr>
+                `;
+            } else {
+                // Multi-leg Strategy
+                let netLotPremium = 0;
+                let netSharePrice = 0;
+                let netDelta = 0;
+                let netLotDelta = 0;
+                let netGamma = 0;
+                let netVega1Pct = 0;
+                let netLotVega = 0;
+                let netThetaDaily = 0;
+                let netLotTheta = 0;
+                
+                state.strategyLegs.forEach((leg, idx) => {
+                    const d_i = leg.action === 'BUY' ? 1 : -1;
+                    const res = calculateBS(state.spot, leg.strike, leg.expiry, leg.iv, leg.rate, leg.type);
+                    
+                    netSharePrice += d_i * res.price;
+                    netLotPremium += d_i * res.price * leg.lotSize;
+                    netDelta += d_i * res.delta;
+                    netLotDelta += d_i * res.delta * leg.lotSize;
+                    netGamma += d_i * res.gamma;
+                    netVega1Pct += d_i * res.vega1Pct;
+                    netLotVega += d_i * res.vega1Pct * leg.lotSize;
+                    netThetaDaily += d_i * res.thetaDaily;
+                    netLotTheta += d_i * res.thetaDaily * leg.lotSize;
+                    
+                    legsTableHTML += `
+                        <tr class="border-b border-slate-200 text-xs">
+                            <td class="px-4 py-2 font-bold text-slate-800">#${idx + 1}</td>
+                            <td class="px-4 py-2">${leg.type}</td>
+                            <td class="px-4 py-2 font-semibold ${leg.action === 'BUY' ? 'text-green-600' : 'text-red-600'}">${leg.action}</td>
+                            <td class="px-4 py-2">₹${leg.strike}</td>
+                            <td class="px-4 py-2">${leg.expiry.toFixed(1)} Days</td>
+                            <td class="px-4 py-2">${leg.iv}%</td>
+                            <td class="px-4 py-2">${leg.lotSize}</td>
+                            <td class="px-4 py-2 text-right font-mono">₹${leg.price.toFixed(2)}</td>
+                        </tr>
+                    `;
+                });
+                
+                const isDebit = netLotPremium >= 0;
+                premiumLabel = isDebit ? "Net Debit per Lot" : "Net Credit per Lot";
+                premiumVal = `₹${Math.abs(netLotPremium).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${isDebit ? 'Debit' : 'Credit'}`;
+                sharePriceVal = `₹${Math.abs(netSharePrice).toFixed(2)}`;
+                
+                const bounds = calculateStrategyBoundaries();
+                if (bounds) {
+                    maxProfitHTML = bounds.maxProfit === 'Unlimited' ? 'Unlimited' : (bounds.maxProfit >= 0 ? `₹${bounds.maxProfit.toLocaleString('en-IN')}` : `-₹${Math.abs(bounds.maxProfit).toLocaleString('en-IN')}`);
+                    maxLossHTML = bounds.maxLoss === 'Unlimited' ? 'Unlimited' : (bounds.maxLoss >= 0 ? `₹${bounds.maxLoss.toLocaleString('en-IN')}` : `-₹${Math.abs(bounds.maxLoss).toLocaleString('en-IN')}`);
+                    breakevensHTML = bounds.breakevens.length === 0 ? 'None' : bounds.breakevens.map(b => `₹${Math.round(b).toLocaleString('en-IN')}`).join(', ');
+                }
+                
+                greeksTableHTML = `
+                    <tr class="border-b border-slate-200">
+                        <td class="px-4 py-2 font-semibold">Delta (&Delta;)</td>
+                        <td class="px-4 py-2">${netDelta.toFixed(4)}</td>
+                        <td class="px-4 py-2">${(netLotDelta >= 0 ? '+' : '')}${netLotDelta.toFixed(2)} shares</td>
+                    </tr>
+                    <tr class="border-b border-slate-200">
+                        <td class="px-4 py-2 font-semibold">Gamma (&Gamma;)</td>
+                        <td class="px-4 py-2">${netGamma.toFixed(5)}</td>
+                        <td class="px-4 py-2">Per ₹1 Spot change</td>
+                    </tr>
+                    <tr class="border-b border-slate-200">
+                        <td class="px-4 py-2 font-semibold">Vega (&nu;)</td>
+                        <td class="px-4 py-2">${netVega1Pct.toFixed(4)}</td>
+                        <td class="px-4 py-2">${(netLotVega >= 0 ? '+' : '')}₹${Math.abs(netLotVega).toFixed(2)} (per 1% IV shift)</td>
+                    </tr>
+                    <tr class="border-b border-slate-200">
+                        <td class="px-4 py-2 font-semibold">Theta (&Theta;)</td>
+                        <td class="px-4 py-2">${netThetaDaily.toFixed(4)}</td>
+                        <td class="px-4 py-2">${(netLotTheta >= 0 ? '+' : '-')}${Math.abs(netLotTheta).toFixed(2)} (daily decay)</td>
+                    </tr>
+                `;
+            }
+            
+            const strategyName = isStrategy ? `${instrument} Multi-Leg Strategy (${state.strategyLegs.length} Legs)` : `${instrument} Single Option (${state.optionType})`;
+            
+            let visualHTML = '';
+            if (payoffChartImg || decayChartImg) {
+                visualHTML = '<div class="page-break pt-4">';
+                visualHTML += '<h2 class="text-xs font-bold uppercase font-mono tracking-wider text-slate-700 mb-3 border-b border-slate-200 pb-1.5">Strategy Visualizations</h2>';
+                visualHTML += '<div class="grid grid-cols-1 md:grid-cols-2 gap-4">';
+                if (payoffChartImg) {
+                    visualHTML += `
+                    <div class="border border-slate-200 rounded-xl p-3 bg-slate-950">
+                        <h3 class="text-[9px] font-mono font-bold text-slate-400 mb-1.5 text-center uppercase tracking-wider">Option Payoff Curve</h3>
+                        <img src="${payoffChartImg}" class="w-full h-auto rounded border border-slate-800" alt="Option Payoff Chart" />
+                    </div>
+                    `;
+                }
+                if (decayChartImg) {
+                    visualHTML += `
+                    <div class="border border-slate-200 rounded-xl p-3 bg-slate-950">
+                        <h3 class="text-[9px] font-mono font-bold text-slate-400 mb-1.5 text-center uppercase tracking-wider">Time Decay Profile</h3>
+                        <img src="${decayChartImg}" class="w-full h-auto rounded border border-slate-800" alt="Time Decay Chart" />
+                    </div>
+                    `;
+                }
+                visualHTML += '</div></div>';
+            }
+
+            const htmlContent = `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PaisaPricer - Options Pricing & Greeks Analysis Report</title>
+    <script src="https://cdn.tailwindcss.com"></${'script'}>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f8fafc;
+            color: #1e293b;
+        }
+        .mono {
+            font-family: 'JetBrains Mono', monospace;
+        }
+        @media print {
+            body {
+                background-color: #ffffff;
+                padding: 0;
+            }
+            .no-print {
+                display: none;
+            }
+            .page-break {
+                page-break-before: always;
+            }
+            .shadow-xl {
+                box-shadow: none !important;
+            }
+            .border {
+                border-color: #e2e8f0 !important;
+            }
+        }
+    </style>
+</head>
+<body class="p-4 md:p-8">
+
+    <!-- Top Action bar -->
+    <div class="max-w-4xl mx-auto mb-6 flex justify-between items-center no-print">
+        <span class="text-xs font-semibold text-slate-500 font-mono">PAISAPRICER REPORT GENERATOR</span>
+        <button onclick="window.print()" class="bg-gradient-to-r from-cyan-500 to-blue-600 hover:opacity-90 text-white font-semibold py-2 px-5 rounded-lg text-sm transition shadow flex items-center gap-2">
+            Print / Save to PDF
+        </button>
+    </div>
+
+    <!-- Main Report Sheet -->
+    <div class="max-w-4xl mx-auto bg-white border border-slate-200 rounded-2xl shadow-xl p-6 md:p-10">
+        <!-- Header -->
+        <header class="flex justify-between items-start border-b border-slate-200 pb-4 mb-6">
+            <div>
+                <h1 class="text-xl font-bold tracking-tight text-slate-900">PAISA<span class="text-cyan-600">PRICER</span></h1>
+                <p class="text-[10px] font-mono text-slate-500 mt-0.5 uppercase tracking-wider">Options Valuation & Greeks Report</p>
+            </div>
+            <div class="text-right text-[10px] text-slate-500 font-mono">
+                <div>Generated: ${timestamp}</div>
+                <div>Source: paisapricer.live</div>
+            </div>
+        </header>
+
+        <!-- Strategy Metadata Grid -->
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+            <div class="bg-slate-50 p-3.5 rounded-xl border border-slate-100">
+                <span class="text-[9px] text-slate-400 font-mono uppercase tracking-wider block">Strategy</span>
+                <span class="text-xs font-bold text-slate-800">${strategyName}</span>
+            </div>
+            <div class="bg-slate-50 p-3.5 rounded-xl border border-slate-100">
+                <span class="text-[9px] text-slate-400 font-mono uppercase tracking-wider block">Underlying Spot</span>
+                <span class="text-xs font-bold text-slate-800 font-mono font-mono">₹${spot.toLocaleString('en-IN')}</span>
+            </div>
+            <div class="bg-slate-50 p-3.5 rounded-xl border border-slate-100">
+                <span class="text-[9px] text-slate-400 font-mono uppercase tracking-wider block">Risk Free Rate</span>
+                <span class="text-xs font-bold text-slate-800 font-mono font-mono">${state.rate.toFixed(2)}%</span>
+            </div>
+            <div class="bg-slate-50 p-3.5 rounded-xl border border-slate-100">
+                <span class="text-[9px] text-slate-400 font-mono uppercase tracking-wider block">Base Lot Size</span>
+                <span class="text-xs font-bold text-slate-800 font-mono font-mono">${lotSize} shares</span>
+            </div>
+        </div>
+
+        <!-- Strategy Summary Card -->
+        <section class="border border-slate-200 rounded-xl p-5 mb-6 bg-slate-50/50">
+            <h2 class="text-xs font-bold uppercase font-mono tracking-wider text-slate-700 mb-3 border-b border-slate-200 pb-1.5">Execution Premium & Risk Boundaries</h2>
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div>
+                    <span class="text-[9px] text-slate-400 font-mono uppercase block">${premiumLabel}</span>
+                    <span class="text-base font-bold text-slate-800 font-mono font-mono">${premiumVal}</span>
+                    <span class="text-[9px] text-slate-500 block mt-0.5">Price per share: ${sharePriceVal}</span>
+                </div>
+                <div>
+                    <span class="text-[9px] text-slate-400 font-mono uppercase block">Max Profit</span>
+                    <span class="text-base font-bold text-green-600 font-mono font-mono">${maxProfitHTML}</span>
+                </div>
+                <div>
+                    <span class="text-[9px] text-slate-400 font-mono uppercase block">Max Loss</span>
+                    <span class="text-base font-bold text-red-600 font-mono font-mono">${maxLossHTML}</span>
+                </div>
+                <div>
+                    <span class="text-[9px] text-slate-400 font-mono uppercase block">Breakeven(s)</span>
+                    <span class="text-xs font-bold text-slate-800 font-mono block mt-1">${breakevensHTML}</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- Leg Details Table -->
+        <section class="mb-6">
+            <h2 class="text-xs font-bold uppercase font-mono tracking-wider text-slate-700 mb-3 border-b border-slate-200 pb-1.5">Option Contract Legs</h2>
+            <div class="overflow-x-auto border border-slate-200 rounded-xl">
+                <table class="w-full text-left border-collapse text-xs">
+                    <thead>
+                        <tr class="bg-slate-50 border-b border-slate-200 text-slate-500 font-mono text-[10px]">
+                            <th class="px-4 py-2 font-semibold">Leg ID</th>
+                            <th class="px-4 py-2 font-semibold">Type</th>
+                            <th class="px-4 py-2 font-semibold">Action</th>
+                            <th class="px-4 py-2 font-semibold">Strike</th>
+                            <th class="px-4 py-2 font-semibold">Expiry</th>
+                            <th class="px-4 py-2 font-semibold">IV (%)</th>
+                            <th class="px-4 py-2 font-semibold">Lot Size</th>
+                            <th class="px-4 py-2 text-right">Entry Price</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-100 text-slate-700">
+                        ${legsTableHTML}
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- Greeks Dashboard -->
+        <section class="mb-6">
+            <h2 class="text-xs font-bold uppercase font-mono tracking-wider text-slate-700 mb-3 border-b border-slate-200 pb-1.5">Greeks Sensitivity Dashboard</h2>
+            <div class="overflow-x-auto border border-slate-200 rounded-xl">
+                <table class="w-full text-left border-collapse text-xs">
+                    <thead>
+                        <tr class="bg-slate-50 border-b border-slate-200 text-slate-500 font-mono text-[10px]">
+                            <th class="px-4 py-2 font-semibold">Greek Metric</th>
+                            <th class="px-4 py-2 font-semibold">Per Share Value</th>
+                            <th class="px-4 py-2 font-semibold">Lot Net Exposure</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-100 text-slate-700 font-mono font-mono">
+                        ${greeksTableHTML}
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- Embedded Visualizations -->
+        ${visualHTML}
+
+        <!-- Footer terms -->
+        <footer class="border-t border-slate-200 pt-4 mt-8 text-[9px] text-slate-400 font-mono text-center leading-relaxed">
+            Disclaimer: PaisaPricer is an educational valuation tool using Black-Scholes formulas. Option prices fluctuate based on real market changes. 
+            Confirm metrics with authorized brokers prior to taking live trading decisions on the NSE/BSE.
+        </footer>
+    </div>
+
+</body>
+</html>
+            `;
+            
+            // Trigger browser download
+            const blob = new Blob([htmlContent], { type: 'text/html' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            const date = new Date();
+            const dateStr = `${date.getFullYear()}${String(date.getMonth() + 1).padStart(2, '0')}${String(date.getDate()).padStart(2, '0')}`;
+            a.download = `PaisaPricer_Report_${instrument}_${dateStr}.html`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            
+            showToast("HTML Analysis Report generated successfully");
+        }
+
+        // ==========================================
+        // REAL-TIME SYNC & SEARCH GENERATOR
+        // ==========================================
+        const KNOWN_LOT_SIZES = {
+            // Indices
+            NIFTY: 25, SENSEX: 10, BANKNIFTY: 15, FINNIFTY: 25, MIDCAP: 50,
+            // Stocks
+            RELIANCE: 250, TCS: 175, INFY: 400, INFOSYS: 400, HDFCBANK: 550, ICICIBANK: 700,
+            SBIN: 1500, BHARTIARTL: 950, ITC: 1600, WIPRO: 1500, LT: 300,
+            AXISBANK: 625, KOTAKBANK: 400, TATAMOTORS: 975, HINDUNILVR: 300,
+            MARUTI: 50, TATASTEEL: 5500, BAJFINANCE: 125, BHARTIAIRTEL: 950,
+            M_M: 350, SUNPHARMA: 700, ADANIENT: 300, ADANIPORTS: 400,
+            TITAN: 175, POWERGRID: 3600, NTPC: 3000, ULTRACEMCO: 100,
+            COALINDIA: 4200, JSWSTEEL: 675, GRASIM: 475, INDUSINDBK: 500,
+            BPCL: 1800, HINDALCO: 1400, NESTLEIND: 400, ONGC: 3850,
+            ADANIPOWER: 1800, TATACONSUM: 650, BAJAJ_AUTO: 125, EICHERMOT: 175,
+            TECHM: 600, HEROMOTOCO: 150, CIPLA: 650, DRREDDY: 125, APOLLOHOSP: 125,
+            DIVISLAB: 150, JSWENERGY: 1125, LTIM: 150, TATAPOWER: 3375, VEDL: 2300,
+            BEL: 2850, HAL: 300, DLF: 1650, PFC: 3875, REC: 2000
+        };
+
+        function estimateLotSize(price) {
+            const targetContractValue = 750000;
+            const rawLot = targetContractValue / price;
+            if (rawLot > 1500) {
+                return Math.round(rawLot / 500) * 500 || 1500;
+            } else if (rawLot > 500) {
+                return Math.round(rawLot / 100) * 100 || 500;
+            } else if (rawLot > 100) {
+                return Math.round(rawLot / 50) * 50 || 250;
+            } else {
+                return Math.round(rawLot / 10) * 10 || 50;
+            }
+        }
+
+        async function fetchRealtimeSpot(symbol) {
+            const symbolMap = {
+                NIFTY: '^NSEI',
+                SENSEX: '^BSESN',
+                BANKNIFTY: '^NSEBANK',
+                FINNIFTY: '^CNXFIN',
+                MIDCAP: 'NIFTY_MID_SELECT.NS',
+                RELIANCE: 'RELIANCE.NS',
+                TCS: 'TCS.NS',
+                INFOSYS: 'INFY.NS',
+                HDFCBANK: 'HDFCBANK.NS',
+                ICICIBANK: 'ICICIBANK.NS',
+                SBIN: 'SBIN.NS',
+                BHARTIARTL: 'BHARTIARTL.NS'
+            };
+            
+            const cleanSym = symbol.trim().toUpperCase();
+            const yfSymbol = symbolMap[cleanSym] || (cleanSym.endsWith('.NS') || cleanSym.endsWith('.BO') || cleanSym.startsWith('^') ? cleanSym : `${cleanSym}.NS`);
+            
+            try {
+                const url = `https://corsproxy.io/?https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(yfSymbol)}`;
+                const response = await fetch(url);
+                const data = await response.json();
+                if (data && data.chart && data.chart.result && data.chart.result[0]) {
+                    const meta = data.chart.result[0].meta;
+                    return {
+                        price: meta.regularMarketPrice,
+                        pctChange: meta.regularMarketChangePercent || 0,
+                        symbol: cleanSym
+                    };
+                }
+            } catch (e) {
+                console.warn(`corsproxy.io failed for ${yfSymbol}, trying allorigins...`, e);
+                try {
+                    const url = `https://api.allorigins.win/get?url=${encodeURIComponent(`https://query1.finance.yahoo.com/v8/finance/chart/${yfSymbol}`)}`;
+                    const response = await fetch(url);
+                    const wrapper = await response.json();
+                    const data = JSON.parse(wrapper.contents);
+                    if (data && data.chart && data.chart.result && data.chart.result[0]) {
+                        const meta = data.chart.result[0].meta;
+                        return {
+                            price: meta.regularMarketPrice,
+                            pctChange: meta.regularMarketChangePercent || 0,
+                            symbol: cleanSym
+                        };
+                    }
+                } catch(err) {
+                    console.error(`All-Origins fallback failed for ${yfSymbol}`, err);
+                }
+            }
+            return null;
+        }
+
+        async function syncDatabasePrices() {
+            const indices = ['NIFTY', 'SENSEX', 'BANKNIFTY', 'FINNIFTY', 'MIDCAP'];
+            for (const key of indices) {
+                const res = await fetchRealtimeSpot(key);
+                if (res) {
+                    INSTRUMENT_SPECS[key].spot = res.price;
+                    liveIndices[key] = res.price;
+                    baseIndices[key] = res.price;
+                    basePctChanges[key] = res.pctChange;
+                    
+                    const elem = document.getElementById(`ticker-${key.toLowerCase()}`);
+                    if (elem) {
+                        const colorClass = res.pctChange >= 0 ? 'text-accentGreen' : 'text-accentRed';
+                        elem.className = `${colorClass} transition duration-300`;
+                        elem.textContent = res.price.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                        
+                        const pctSpan = elem.nextElementSibling;
+                        if (pctSpan) {
+                            const sign = res.pctChange >= 0 ? '+' : '';
+                            pctSpan.className = `${colorClass} text-[10px] transition duration-300`;
+                            pctSpan.textContent = `${sign}${res.pctChange.toFixed(2)}%`;
+                        }
+                    }
+                }
+            }
+            
+            const activeInst = state.instrument;
+            if (INSTRUMENT_SPECS[activeInst]) {
+                const res = await fetchRealtimeSpot(activeInst);
+                if (res) {
+                    INSTRUMENT_SPECS[activeInst].spot = res.price;
+                    state.spot = res.price;
+                    state.strike = Math.round(res.price / INSTRUMENT_SPECS[activeInst].step) * INSTRUMENT_SPECS[activeInst].step;
+                    
+                    elements.inputSpot.value = state.spot;
+                    elements.sliderSpot.value = state.spot;
+                    elements.inputStrike.value = state.strike;
+                    elements.sliderStrike.value = state.strike;
+                }
+            }
+            
+            updateAppMetrics();
+        }
+
+        async function searchAndAddSymbol() {
+            const symbolInput = elements.inputSearchSymbol.value.trim().toUpperCase();
+            if (!symbolInput) {
+                showToast("Please enter a stock symbol to search");
+                return;
+            }
+            
+            showToast(`Searching Yahoo Finance for '${symbolInput}'...`);
+            const res = await fetchRealtimeSpot(symbolInput);
+            if (!res) {
+                showToast(`Failed to resolve quote for symbol '${symbolInput}'. Make sure it's valid on NSE/BSE.`);
+                return;
+            }
+            
+            const price = res.price;
+            const symbol = res.symbol;
+            
+            // Resolve lot size
+            let lotSize = KNOWN_LOT_SIZES[symbol];
+            if (!lotSize) {
+                lotSize = estimateLotSize(price);
+                console.log(`Estimated lot size for ${symbol}: ${lotSize}`);
+            }
+            
+            // Determine grid step size
+            let step = 5;
+            if (price > 10000) step = 100;
+            else if (price > 5000) step = 50;
+            else if (price > 1000) step = 20;
+            else if (price > 500) step = 10;
+            
+            const minSpot = Math.round(price * 0.7);
+            const maxSpot = Math.round(price * 1.3);
+            
+            // Add to Specs database
+            INSTRUMENT_SPECS[symbol] = {
+                name: symbol,
+                lot: lotSize,
+                spot: price,
+                minSpot: minSpot,
+                maxSpot: maxSpot,
+                step: step
+            };
+            
+            // Add to dropdown UI under Search Results optgroup
+            const group = document.getElementById('group-search-results');
+            if (group) {
+                group.classList.remove('hidden');
+                
+                // Check if option already exists
+                let option = group.querySelector(`option[value="${symbol}"]`);
+                if (!option) {
+                    option = document.createElement('option');
+                    option.value = symbol;
+                    group.appendChild(option);
+                }
+                option.textContent = `${symbol} (Lot: ${lotSize})`;
+                option.selected = true;
+            }
+            
+            // Trigger selection update
+            elements.selectInstrument.value = symbol;
+            elements.selectInstrument.dispatchEvent(new Event('change'));
+            
+            // Clear input & show feedback
+            elements.inputSearchSymbol.value = '';
+            showToast(`Added ${symbol} (Lot Size: ${lotSize}, Price: ₹${price.toFixed(2)}) to Workspace`);
+        }
+
+        // ==========================================
+        // PAGE LIFECYCLE & INITS
+        // ==========================================
+        window.addEventListener('DOMContentLoaded', () => {
+            initCharts();
+            loadWatchlist();
+            updateAppMetrics();
+            
+            // Bind Export Report
+            if (elements.btnExportReport) {
+                elements.btnExportReport.addEventListener('click', exportReport);
+            }
+
+            // Bind Search & Add Symbol
+            if (elements.btnSearchSymbol) {
+                elements.btnSearchSymbol.addEventListener('click', searchAndAddSymbol);
+            }
+            if (elements.inputSearchSymbol) {
+                elements.inputSearchSymbol.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter') {
+                        searchAndAddSymbol();
+                    }
+                });
+            }
+            
+            // Sync database spot prices on startup
+            syncDatabasePrices();
+        });
+    </script>
+</body>
+</html>
